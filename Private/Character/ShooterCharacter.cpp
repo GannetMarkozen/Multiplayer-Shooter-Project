@@ -1,0 +1,178 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "Character/ShooterCharacter.h"
+
+#include "AbilitySystemGlobals.h"
+#include "Camera/CameraComponent.h"
+#include "GAS/ExtendedTypes.h"
+#include "GAS/GASAttributeSet.h"
+#include "GAS/GASGameplayAbility.h"
+#include "GAS/Abilities/EquipWeaponAbility.h"
+#include "GAS/Abilities/Weapons/Weapon.h"
+#include "Net/UnrealNetwork.h"
+
+AShooterCharacter::AShooterCharacter()
+{
+	PrimaryActorTick.bCanEverTick = false;
+
+	GetMesh()->SetOwnerNoSee(true);
+
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->bUsePawnControlRotation = true;
+	Camera->SetupAttachment(RootComponent);
+	
+	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Mesh"));
+	FP_Mesh->SetOnlyOwnerSee(true);
+	FP_Mesh->SetupAttachment(Camera);
+
+	ASC = CreateDefaultSubobject<UGASAbilitySystemComponent>(TEXT("Ability System Component"));
+	ASC->SetIsReplicated(true);
+	ASC->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
+
+	Attributes = CreateDefaultSubobject<UGASAttributeSet>(TEXT("Attributes"));
+
+	Inventory = CreateDefaultSubobject<UCharacterInventoryComponent>(TEXT("InventoryComponent"));
+}
+
+void AShooterCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
+void AShooterCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+}
+
+void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, ItemMesh, COND_None, REPNOTIFY_OnChanged);
+}
+
+void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	PlayerInputComponent->BindAxis("MoveForward", this, &AShooterCharacter::MoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AShooterCharacter::MoveRight);
+	PlayerInputComponent->BindAxis("LookUp", this, &AShooterCharacter::LookUp);
+	PlayerInputComponent->BindAxis("Turn", this, &AShooterCharacter::Turn);
+	
+	if(ASC && InputComponent)
+	{
+		const FGameplayAbilityInputBinds Binds("Confirm", "Cancel", "EAbilityInput",
+		static_cast<int32>(EAbilityInput::Confirm), static_cast<int32>(EAbilityInput::Cancel));
+		ASC->BindAbilityActivationToInputComponent(InputComponent, Binds);
+	}
+}
+
+void AShooterCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	
+	ASC->InitAbilityActorInfo(this, this);
+
+	InitializeAttributes();
+
+	// Only server grants abilities
+	InitializeAbilities();
+}
+
+void AShooterCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	ASC->InitAbilityActorInfo(this, this);
+	
+	InitializeAttributes();
+
+	// Only bind input locally
+	if(ASC && InputComponent)
+	{
+		const FGameplayAbilityInputBinds Binds("Confirm", "Cancel", "EAbilityInput",
+		static_cast<int32>(EAbilityInput::Confirm), static_cast<int32>(EAbilityInput::Cancel));
+		ASC->BindAbilityActivationToInputComponent(InputComponent, Binds);
+	}
+}
+
+void AShooterCharacter::InitializeAbilities()
+{
+	if(!HasAuthority()) return;
+	for(int32 i = 0; i < DefaultAbilities.Num(); i++)
+	{
+		if(IsValid(DefaultAbilities[i]))
+		{
+			const FGameplayAbilitySpec AbilitySpec(DefaultAbilities[i], 1, static_cast<int32>(DefaultAbilities[i].GetDefaultObject()->Input), this);
+			const FGameplayAbilitySpecHandle& Handle = ASC->GiveAbility(AbilitySpec);
+		}
+	}
+
+	PostInitializeAbilities();
+}
+
+
+void AShooterCharacter::InitializeAttributes()
+{
+	for(const TSubclassOf<class UGameplayEffect>& DefaultEffect : DefaultEffects)
+	{
+		if(DefaultEffect)
+		{
+			FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
+			EffectContext.AddSourceObject(this);
+
+			FGameplayEffectSpecHandle SpecHandle = ASC->MakeOutgoingSpec(DefaultEffect, 1, EffectContext);
+			if(SpecHandle.IsValid())
+			{
+				ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+			}
+		}
+	}
+			
+}
+
+void AShooterCharacter::OnRep_ItemMesh()
+{
+	GetFP_ItemMesh()->SetSkeletalMesh(ItemMesh);
+	GetTP_ItemMesh()->SetSkeletalMesh(ItemMesh);
+	if(ItemMesh && ItemMeshDataTable)
+	{
+		if(const FMeshTableRow* MeshTableRow = ItemMeshDataTable->FindRow<FMeshTableRow>(ItemMesh->GetFName(), "MeshTableRow"))
+		{
+			const FTransform RelativeTransform(MeshTableRow->RelativeRotation, MeshTableRow->RelativeLocation);
+			GetFP_ItemMesh()->SetRelativeTransform(RelativeTransform);
+			GetTP_ItemMesh()->SetRelativeTransform(RelativeTransform);
+		}
+	}
+}
+
+
+
+
+
+void AShooterCharacter::MoveForward(float Value)
+{
+	if(Value != 0.f) AddMovementInput(GetActorForwardVector() * Value);
+}
+
+void AShooterCharacter::MoveRight(float Value)
+{
+	if(Value != 0.f) AddMovementInput(GetActorRightVector() * Value);
+}
+
+void AShooterCharacter::LookUp(float Value)
+{
+	if(Value != 0.f) AddControllerPitchInput(-Value * Sensitivity);
+}
+
+void AShooterCharacter::Turn(float Value)
+{
+	if(Value != 0.f) AddControllerYawInput(Value * Sensitivity);
+}
+
+
+
+
