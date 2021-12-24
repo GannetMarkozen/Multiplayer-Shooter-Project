@@ -29,6 +29,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class UGameplayEffect> DamageEffectClass;
 
+	// Number of shots per execution. More than one for things like shotguns
 	UPROPERTY(EditDefaultsOnly)
 	int32 NumShots = 1;
 
