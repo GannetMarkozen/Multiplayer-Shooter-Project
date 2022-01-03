@@ -58,6 +58,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove Loose Gameplay Tag"), Category = "GAS")
 	FORCEINLINE void BP_RemoveLooseGameplayTag(const FGameplayTag Tag, const int32 Count = 1) { RemoveLooseGameplayTag(Tag, Count); }
+
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tags"), Category = "GAS")
+	void AddLooseGameplayTagsForDuration(const FGameplayTagContainer& Tags, const float Duration, const int32 Count = 1);
 	
 protected:
 	virtual void AbilityLocalInputPressed(int32 InputID) override;
@@ -72,4 +75,6 @@ protected:
 	{
 		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Executed, Params);
 	}
+
+	TArray<FTimerHandle> TimerHandles;
 };

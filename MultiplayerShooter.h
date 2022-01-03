@@ -76,7 +76,9 @@ public:
 
 #define PRINT(...) if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, FColor::White, FString::Printf(##__VA_ARGS__))
 
-#define PRINT_COLOR(Color, ...) if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, Color, FString::Printf(##__VA_ARGS__))
+#define PRINTCOLOR(Color, ...) if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, Color, FString::Printf(##__VA_ARGS__))
+
+#define PRINTLINE PRINT(TEXT("%s"), *FString(__FUNCTION__))
 
 #define TAG(TagName) FGameplayTag::RequestGameplayTag(FName(TagName))
 

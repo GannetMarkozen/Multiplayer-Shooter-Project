@@ -108,16 +108,9 @@ public:
 	// Immediately kills the player
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "OptionalSpec"), Category = "Character")
 	virtual void Die(const FGameplayEffectSpecHandle& OptionalSpec);
-	
-	
 
-protected:/*
-	UPROPERTY(ReplicatedUsing = OnRep_ItemMesh)
-	TObjectPtr<class USkeletalMesh> ItemMesh;
-
-	UFUNCTION()
-	virtual void OnRep_ItemMesh();*/
-
+protected:
+	// Called when health changed
 	virtual void HealthChanged(const FOnAttributeChangeData& Data);
 
 	// The spec is the killing effect spec handle

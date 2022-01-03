@@ -23,6 +23,7 @@ UFireWeaponAbility::UFireWeaponAbility()
 	
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
+	ActivationBlockedTags.AddTag(TAG("Status.State.Reloading"));
 }
 
 void UFireWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)

@@ -47,35 +47,49 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	TObjectPtr<class USkeletalMeshComponent> TP_Mesh;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TObjectPtr<class UAnimMontage> FP_EquipMontage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TObjectPtr<class UAnimMontage> TP_EquipMontage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TObjectPtr<class UAnimMontage> FP_ReloadMontage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TObjectPtr<class UAnimMontage> TP_ReloadMontage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	TObjectPtr<class UAnimMontage> FP_FireMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	TObjectPtr<class UAnimMontage> TP_FireMontage;
+
+	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = "true"), Category = "Configurations")
 	TArray<TSubclassOf<class UGASGameplayAbility>> WeaponAbilities;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TSubclassOf<class UGameplayEffect> DamageEffect;
 
 	// The base damage that all damage calculations are based off of
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	int32 BaseDamage = 15;
 
 	// This should be lowered if projectile weapon or melee weapon
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	float Range = 50000.f;
 
 	// The max range that the damage calculation uses as its metric
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	float EffectiveRange = 3500.f;
+
+	// The cooldown inbetween shots
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	float RateOfFire = 0.1f;
+
+	// The cooldown during reloading
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	float ReloadDuration = 1.f;
 
 	// The type of damage this weapon deals
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "Data.DamageType"), Category = "Configurations")
@@ -106,6 +120,18 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class UAnimMontage* GetTP_ReloadMontage() const { return TP_ReloadMontage; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE class UAnimMontage* GetFP_FireMontage() const { return FP_FireMontage; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE class UAnimMontage* GetTP_FireMontage() const { return TP_FireMontage; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE float GetRateOfFire() const { return RateOfFire; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE float GetReloadDuration() const { return ReloadDuration; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	const FORCEINLINE TArray<TSubclassOf<class UGASGameplayAbility>>& GetWeaponAbilities() const { return WeaponAbilities; }

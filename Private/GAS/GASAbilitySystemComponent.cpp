@@ -63,6 +63,24 @@ void UGASAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag Gamep
 	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Removed, GameplayCueParameters);
 }
 
+void UGASAbilitySystemComponent::AddLooseGameplayTagsForDuration(const FGameplayTagContainer& Tags, const float Duration, const int32 Count)
+{
+	if(Tags.IsEmpty()) return;
+	PRINT(TEXT("Added %s"), *Tags.ToString());
+	AddLooseGameplayTags(Tags, Count);
+	FTimerHandle RemoveHandle;
+	TimerHandles.Add(RemoveHandle);
+	const auto& RemoveTags = [this, Tags, Count, &RemoveHandle]()->void
+	{
+		if(!IsValid(this)) return;
+		RemoveLooseGameplayTags(Tags, Count);
+		TimerHandles.Remove(RemoveHandle);
+		PRINT(TEXT("Removed %s"), *Tags.ToString());
+	};
+	
+	GetWorld()->GetTimerManager().SetTimer(RemoveHandle, RemoveTags, Duration, false);
+}
+
 void UGASAbilitySystemComponent::AbilityLocalInputPressed(int32 InputID)
 {
 	if(IsGenericConfirmInputBound(InputID))

@@ -60,8 +60,7 @@ void AShooterCharacter::Tick(float DeltaTime)
 void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	//DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, ItemMesh, COND_None, REPNOTIFY_OnChanged);
+	
 	DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, CurrentWeapon, COND_None, REPNOTIFY_OnChanged);
 }
 
