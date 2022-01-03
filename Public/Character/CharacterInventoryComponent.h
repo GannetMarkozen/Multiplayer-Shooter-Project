@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Character/InventoryComponent.h"
+#include "GameplayAbilities/Public/GameplayAbilitySpec.h"
 #include "CharacterInventoryComponent.generated.h"
 
 /**
@@ -29,7 +30,7 @@ protected:
 	int32 DefaultItemIndex = 0;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Inventory")
-	int32 CurrentIndex = -1;
+	int32 CurrentIndex = INDEX_NONE;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Inventory")
 	int32 LastIndex = 0;

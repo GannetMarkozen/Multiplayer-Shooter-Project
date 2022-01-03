@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Abilities/Tasks/AbilityTask.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
+#include "GAS/ExtendedTypes.h"
 
 #include "AbilityTask_WaitMontageCompleted.generated.h"
 
@@ -33,7 +34,7 @@ protected:
 	void MontageCompleted(class UAnimMontage* AnimMontage, bool bInterrupted);
 
 	UFUNCTION()
-	void EndMontage();
+	void EndMontage(const FGameplayAbilityActorInfoExtended& ActorInfo);
 	
 	UPROPERTY()
 	TObjectPtr<class UAnimInstance> AnimInstance;

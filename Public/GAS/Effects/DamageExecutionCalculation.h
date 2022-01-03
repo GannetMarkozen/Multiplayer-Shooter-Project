@@ -16,8 +16,11 @@ class MULTIPLAYERSHOOTER_API UDamageExecutionCalculation : public UGameplayEffec
 	GENERATED_BODY()
 public:
 	UDamageExecutionCalculation();
+	
 protected:
 	virtual void Execute_Implementation(const FGameplayEffectCustomExecutionParameters& ExecutionParams, FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const override;
+
+	virtual float CalculateBaseDamage(const FGameplayEffectCustomExecutionParameters& ExecutionParams, const FAggregatorEvaluateParameters& EvaluationParams) const;
 
 	// Returns all hit results on the target this effect is being applied onto
 	virtual void GetHits(TArray<const FHitResult*>& OutHits, const FGameplayEffectCustomExecutionParameters& ExecutionParams) const;

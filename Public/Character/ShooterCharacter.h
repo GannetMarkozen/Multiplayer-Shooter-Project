@@ -8,9 +8,9 @@
 #include "GAS/GASAbilitySystemComponent.h"
 #include "Character/CharacterInventoryComponent.h"
 #include "GAS/DamageInterface.h"
+#include "GAS/GASAttributeSet.h"
 
 #include "ShooterCharacter.generated.h"
-
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterCharacter : public ACharacter, public IAbilitySystemInterface, public IInventoryInterface, public IDamageInterface
@@ -76,6 +76,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations|GAS")
 	TArray<TSubclassOf<class UGameplayEffect>> DefaultEffects;
 
+	// The class this shooter character is
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "Class"), Category = "Configurations")
+	FGameplayTag ClassTag = TAG("Class.None");
+
 	FTimerHandle DelayEquipHandle;
 	
 public:
@@ -85,15 +89,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class USkeletalMeshComponent* GetFP_Mesh() const { return FP_Mesh; }
 
-	// Must be set in BP
-	UFUNCTION(BlueprintPure, BlueprintNativeEvent, Category = "Getters")
-	class USkeletalMeshComponent* GetFP_ItemMesh() const;
-	FORCEINLINE class USkeletalMeshComponent* GetFP_ItemMesh_Implementation() const { return nullptr; }
-
-	// Must be set in BP
-	UFUNCTION(BlueprintPure, BlueprintNativeEvent, Category = "Getters")
-	class USkeletalMeshComponent* GetTP_ItemMesh() const;
-	FORCEINLINE class USkeletalMeshComponent* GetTP_ItemMesh_Implementation() const { return nullptr; }
+	// The class this shooter character is (gameplay class)
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	const FORCEINLINE FGameplayTag& GetClassTag() const { return ClassTag; }
 	
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	const FORCEINLINE TArray<TSubclassOf<class UGASGameplayAbility>>& GetDefaultAbilities() const { return DefaultAbilities; }
@@ -104,18 +102,89 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class UCameraComponent* GetCamera() const { return Camera; }
 
-protected:
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE class UDataTable* GetItemMeshDataTable() const { return ItemMeshDataTable; }
+
+	// Immediately kills the player
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "OptionalSpec"), Category = "Character")
+	virtual void Die(const FGameplayEffectSpecHandle& OptionalSpec);
+	
+	
+
+protected:/*
 	UPROPERTY(ReplicatedUsing = OnRep_ItemMesh)
 	TObjectPtr<class USkeletalMesh> ItemMesh;
 
 	UFUNCTION()
-	virtual void OnRep_ItemMesh();
-public:
+	virtual void OnRep_ItemMesh();*/
 
-	UFUNCTION(BlueprintCallable)
-	FORCEINLINE void SetItemMesh(class USkeletalMesh* NewMesh)
+	virtual void HealthChanged(const FOnAttributeChangeData& Data);
+
+	// The spec is the killing effect spec handle
+	UFUNCTION(BlueprintNativeEvent, Category = "Character")
+	void Server_Death(const float Magnitude, const FGameplayEffectSpecHandle& Spec);
+	virtual void Server_Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec);
+
+	// Called upon death on all instances
+	UFUNCTION(BlueprintNativeEvent, Category = "Character")
+	void Death(const float Magnitude, const FGameplayEffectSpecHandle& Spec);
+	virtual void Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multi_Death(const float Magnitude, const FGameplayEffectSpec& Spec);
+	FORCEINLINE void Multi_Death_Implementation(const float Magnitude, const FGameplayEffectSpec& Spec)
 	{
-		ItemMesh = NewMesh;
-		OnRep_ItemMesh();
+		Death(Magnitude, FGameplayEffectSpecHandle(new FGameplayEffectSpec(Spec)));
 	}
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Character")
+	void Ragdoll(const float Magnitude, const FGameplayEffectSpecHandle& OptionalSpec);
+	virtual void Ragdoll_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec);
+
+	UFUNCTION(Server, Reliable)
+	void Server_Die(const FGameplayEffectSpec& OptionalSpec);
+	FORCEINLINE void Server_Die_Implementation(const FGameplayEffectSpec& OptionalSpec)
+	{
+		Die(OptionalSpec.Def ? FGameplayEffectSpecHandle(new FGameplayEffectSpec(OptionalSpec)) : FGameplayEffectSpecHandle());
+	}
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|GAS")
+	TSubclassOf<class UGameplayEffect> DeathEffectClass;
+	
+public:
+	// If calling this locally also call it on the server to finalize change
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	FORCEINLINE void SetCurrentWeapon(class AWeapon* NewWeapon, const bool bCallServer = false)
+	{
+		Internal_SetCurrentWeapon(NewWeapon);
+		if(bCallServer && !HasAuthority())
+			Server_SetCurrentWeapon(NewWeapon);
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Character")
+	FORCEINLINE class AWeapon* GetCurrentWeapon() const { return CurrentWeapon; }
+	
+protected:
+	UFUNCTION(Server, Reliable)
+	void Server_SetCurrentWeapon(class AWeapon* NewWeapon);
+	FORCEINLINE void Server_SetCurrentWeapon_Implementation(class AWeapon* NewWeapon)
+	{
+		Internal_SetCurrentWeapon(NewWeapon);
+	}
+	
+	void Internal_SetCurrentWeapon(class AWeapon* NewWeapon)
+	{
+		const AWeapon* OldWeapon = CurrentWeapon;
+		CurrentWeapon = NewWeapon;
+		OnRep_Weapon(OldWeapon);
+	}
+	
+	// The current weapon equipped
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_Weapon, Category = "Character")
+	class AWeapon* CurrentWeapon;
+	
+	// Called when swapped weapon
+	UFUNCTION(BlueprintNativeEvent, Category = "Character")
+	void OnRep_Weapon(const class AWeapon* LastWeapon);
+	void OnRep_Weapon_Implementation(const class AWeapon* LastWeapon);
 };

@@ -35,7 +35,7 @@ void UCharacterInventoryComponent::BeginPlay()
 			UEquipWeaponAbility::EquipWeaponEvent(OwningCharacter->GetASC(), DefaultItemIndex);
 		};
 		
-		GetWorld()->GetTimerManager().SetTimer(EquipDelayTimerHandle, Equip, 0.1f, false);
+		GetWorld()->GetTimerManager().SetTimer(EquipDelayTimerHandle, Equip, 0.5f, false);
 		EquipDelayTimerHandle.Invalidate();
 	}
 }

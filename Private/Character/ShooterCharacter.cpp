@@ -4,13 +4,18 @@
 #include "Character/ShooterCharacter.h"
 
 #include "AbilitySystemGlobals.h"
+#include "GameplayEffectExtension.h"
 #include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GAS/ExtendedTypes.h"
 #include "GAS/GASAttributeSet.h"
 #include "GAS/GASGameplayAbility.h"
 #include "GAS/Abilities/EquipWeaponAbility.h"
 #include "GAS/Abilities/Weapons/Weapon.h"
+#include "GAS/Effects/DeathEffect.h"
 #include "Net/UnrealNetwork.h"
+#include "GAS/GASBlueprintFunctionLibrary.h"
 
 AShooterCharacter::AShooterCharacter()
 {
@@ -22,7 +27,7 @@ AShooterCharacter::AShooterCharacter()
 	Camera->bUsePawnControlRotation = true;
 	Camera->SetupAttachment(RootComponent);
 	
-	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Mesh"));
+	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
 	FP_Mesh->SetOnlyOwnerSee(true);
 	FP_Mesh->SetupAttachment(Camera);
 
@@ -32,13 +37,19 @@ AShooterCharacter::AShooterCharacter()
 
 	Attributes = CreateDefaultSubobject<UGASAttributeSet>(TEXT("Attributes"));
 
-	Inventory = CreateDefaultSubobject<UCharacterInventoryComponent>(TEXT("InventoryComponent"));
+	Inventory = CreateDefaultSubobject<UCharacterInventoryComponent>(TEXT("Inventory Component"));
+
+	DeathEffectClass = UDeathEffect::StaticClass();
 }
 
 void AShooterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if(HasAuthority())
+		ASC->GetGameplayAttributeValueChangeDelegate(UGASAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
 }
+
 
 void AShooterCharacter::Tick(float DeltaTime)
 {
@@ -50,7 +61,8 @@ void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, ItemMesh, COND_None, REPNOTIFY_OnChanged);
+	//DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, ItemMesh, COND_None, REPNOTIFY_OnChanged);
+	DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, CurrentWeapon, COND_None, REPNOTIFY_OnChanged);
 }
 
 void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -133,7 +145,7 @@ void AShooterCharacter::InitializeAttributes()
 	}
 			
 }
-
+/*
 void AShooterCharacter::OnRep_ItemMesh()
 {
 	GetFP_ItemMesh()->SetSkeletalMesh(ItemMesh);
@@ -147,7 +159,111 @@ void AShooterCharacter::OnRep_ItemMesh()
 			GetTP_ItemMesh()->SetRelativeTransform(RelativeTransform);
 		}
 	}
+}*/
+
+void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
+{
+	if(LastWeapon)
+	{
+		LastWeapon->GetFP_Mesh()->SetVisibility(false);
+		LastWeapon->GetTP_Mesh()->SetVisibility(false);
+	}
+	if(CurrentWeapon)
+	{
+		CurrentWeapon->GetFP_Mesh()->SetVisibility(true);
+		CurrentWeapon->GetTP_Mesh()->SetVisibility(true);
+		
+		if(UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+			if(UAnimMontage* Montage = CurrentWeapon->GetTP_EquipMontage())
+				AnimInstance->Montage_Play(Montage);
+		
+		if(IsLocallyControlled())
+			if(UAnimInstance* AnimInstance = GetFP_Mesh()->GetAnimInstance())
+				if(UAnimMontage* Montage = CurrentWeapon->GetFP_EquipMontage())
+					AnimInstance->Montage_Play(Montage);
+	}
 }
+
+
+void AShooterCharacter::Die(const FGameplayEffectSpecHandle& OptionalSpec)
+{
+	if(!HasAuthority())
+	{
+		Server_Die(OptionalSpec.IsValid() ? *OptionalSpec.Data.Get() : FGameplayEffectSpec());
+	}
+	else
+	{
+		Server_Death(0.f, OptionalSpec);
+	}
+}
+
+void AShooterCharacter::HealthChanged(const FOnAttributeChangeData& Data)
+{
+	if(Data.NewValue <= 0.f && Data.GEModData)
+	{
+		Server_Death(Data.OldValue - Data.NewValue, FGameplayEffectSpecHandle(new FGameplayEffectSpec(Data.GEModData->EffectSpec)));
+	}
+}
+
+void AShooterCharacter::Server_Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec)
+{// Set is dead to true to replicate death to clients and call death func server-side as well
+	Death(Magnitude, Spec);
+	Multi_Death(Magnitude, Spec.IsValid() ? *Spec.Data.Get() : FGameplayEffectSpec());
+}
+
+void AShooterCharacter::Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec)
+{// Called on all instances
+	if(DeathEffectClass && !ASC->HasMatchingGameplayTag(TAG("Status.State.Dead")))
+	{
+		const FGameplayEffectSpecHandle& DeathSpec = ASC->MakeOutgoingSpec(DeathEffectClass, 1.f, ASC->MakeEffectContextExtended(this));
+		if(DeathSpec.IsValid())
+		{
+			ASC->ApplyGameplayEffectSpecToSelf(*DeathSpec.Data.Get());
+			PRINT(TEXT("%s: Applied death effect"), *AUTHTOSTRING(HasAuthority()));
+		}
+	}
+	
+	// Start ragdolling
+	Ragdoll(Magnitude, Spec);
+}
+
+void AShooterCharacter::Ragdoll_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec)
+{
+	// Ragdoll third person mesh
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->SetAllPhysicsLinearVelocity(GetCharacterMovement()->Velocity);
+
+	// Disable capsule collision and input
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+
+	// Drop current weapon
+	if(CurrentWeapon)
+	{
+		CurrentWeapon->GetTP_Mesh()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		CurrentWeapon->GetTP_Mesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		CurrentWeapon->GetTP_Mesh()->SetSimulatePhysics(true);
+		CurrentWeapon->GetTP_Mesh()->SetAllPhysicsLinearVelocity(GetCharacterMovement()->Velocity);
+	}
+
+	// If damage spec is valid, apply velocities associated with damage
+	if(Spec.IsValid() && Spec.Data.Get()->GetEffectContext().IsValid())
+	{
+		FGameplayCueParameters Params;
+		Params.RawMagnitude = Magnitude * 1.25f; // Multiply magnitude for funny ragdolls
+		Params.EffectContext = FGameplayEffectContextHandle(new FGameplayEffectContextExtended(this, GAS::FilterTargetDataByActor(this, Extend(Spec.Data.Get()->GetEffectContext().Get())->GetTargetData())));
+		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(this, TAG("GameplayCue.Knockback"), EGameplayCueEvent::Executed, Params);
+	}
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -172,7 +288,6 @@ void AShooterCharacter::Turn(float Value)
 {
 	if(Value != 0.f) AddControllerYawInput(Value * Sensitivity);
 }
-
 
 
 

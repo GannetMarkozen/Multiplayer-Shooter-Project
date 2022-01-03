@@ -3,7 +3,9 @@
 
 #include "GAS/GASAttributeSet.h"
 
+#include "Character/ShooterCharacter.h"
 #include "Net/UnrealNetwork.h"
+#include "GameplayEffectExtension.h"
 
 UGASAttributeSet::UGASAttributeSet()
 {
@@ -19,17 +21,16 @@ void UGASAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME_CONDITION_NOTIFY(UGASAttributeSet, BulletResistance, COND_None, REPNOTIFY_Always);
 }
 
+void UGASAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+{
+	
+}
+
+
 void UGASAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
 	Super::PreAttributeChange(Attribute, NewValue);
-/*
-	switch(Attribute.GetGameplayAttributeData(this))
-	{
-		case &Health || &MovementSpeed || &BulletResistance:
-			NewValue = FMath::Max<float>(0.f, NewValue);
-			break;
-		
-	}*/
+	
 	const FGameplayAttributeData* Data = Attribute.GetGameplayAttributeDataChecked(this);
 	if(Data == &Health || Data == &MovementSpeed)
 	{

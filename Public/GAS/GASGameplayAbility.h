@@ -19,8 +19,8 @@
 
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPredictionDelegate);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPredictionDelegateWithEventData, const FGameplayEventData&, EventData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPredictionDelegate, const FGameplayAbilityActorInfoExtended&, ActorInfo);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPredictionDelegateWithEventData, const FGameplayEventData&, EventData, const FGameplayAbilityActorInfoExtended&, ActorInfo);
 /**
  * 
  */
@@ -38,9 +38,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (EditCondition = "Input != EAbilityInput::None"), Category = "Input")
 	bool bActivateOnPressed = true;
 
-	friend void CallClient_PredictionFailed(class UGASGameplayAbility* Ability);
-	friend void CallClient_PredictionSucceeded(class UGASGameplayAbility* Ability);
-	friend void CallClient_PredictionSucceededWithEventData(class UGASGameplayAbility* Ability, const FGameplayEventData& EventData);
+	friend void CallClient_PredictionFailed(class UGASGameplayAbility* Ability, class UGASAbilitySystemComponent* ASC);
+	friend void CallClient_PredictionSucceeded(class UGASGameplayAbility* Ability, class UGASAbilitySystemComponent* ASC);
+	friend void CallClient_PredictionSucceededWithEventData(class UGASGameplayAbility* Ability, const FGameplayEventData& EventData, class UGASAbilitySystemComponent* ASC);
 
 	UPROPERTY(BlueprintAssignable)
 	FPredictionDelegate OnSuccessfulPrediction;
@@ -80,37 +80,39 @@ public:
 	FORCEINLINE class UCharacterMovementComponent* GetCharacterMovement() const;
 	
 protected:
-	
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
+
+	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Give Ability"), Category = "GAS|Ability")
+	void K2_OnGiveAbility(const FGameplayAbilityActorInfo& ActorInfo, const FGameplayAbilitySpec& AbilitySpec);
 	
 	// Client-side failed ability prediction, Always call parent function
 	UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")
-	void Client_PredictionFailed();
-	virtual FORCEINLINE void Client_PredictionFailed_Implementation()
+	void Client_PredictionFailed(const FGameplayAbilityActorInfoExtended& ActorInfo);
+	virtual FORCEINLINE void Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 	{
-		OnFailedPrediction.Broadcast();
+		OnFailedPrediction.Broadcast(ActorInfo);
 	}
 
 	// Client-side successful ability prediction, Always call parent function
 	UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")
-	void Client_PredictionSucceeded();
-	virtual FORCEINLINE void Client_PredictionSucceeded_Implementation()
+	void Client_PredictionSucceeded(const FGameplayAbilityActorInfoExtended& ActorInfo);
+	virtual FORCEINLINE void Client_PredictionSucceeded_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 	{
-		OnSuccessfulPrediction.Broadcast();
+		OnSuccessfulPrediction.Broadcast(ActorInfo);
 	}
 
 	// Client-side successful ability prediction with event data, Always call parent function
 	UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")
-	void Client_PredictionSucceededWithEventData(const FGameplayEventData& EventData);
-	virtual FORCEINLINE void Client_PredictionSucceededWithEventData_Implementation(const FGameplayEventData& EventData)
+	void Client_PredictionSucceededWithEventData(const FGameplayEventData& EventData, const FGameplayAbilityActorInfoExtended& ActorInfo);
+	virtual FORCEINLINE void Client_PredictionSucceededWithEventData_Implementation(const FGameplayEventData& EventData, const FGameplayAbilityActorInfoExtended& ActorInfo)
 	{
-		OnSuccessfulPredictionWithEventData.Broadcast(EventData);
+		OnSuccessfulPredictionWithEventData.Broadcast(EventData, ActorInfo);
 	}
 
 	constexpr static int AbilityIdentifier = 1;
 
 private:
-	UFUNCTION(BlueprintPure, Meta = (DisplayName = "GetCurrentActorInfoExtended", AllowPrivateAccess = "true"), Category = "ActorInfo")
+	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Get Current Actor Info Extended", AllowPrivateAccess = "true"), Category = "ActorInfo")
 	const FORCEINLINE FGameplayAbilityActorInfoExtended& BP_GetCurrentActorInfoExtended() const
 	{
 		return *GetActorInfoExtended();

@@ -66,7 +66,7 @@ void UEquipWeaponAbility::Equip(const int32 NewIndex, bool bCancelled)
 	const int32 CurrentIndex = GetInventory()->GetCurrentIndex();
 	
 	if(CurrentIndex == NewIndex && !bCancelled) return;
-	if(const AWeapon* Weapon = GetInventory()->GetWeapons()[NewIndex])
+	if(AWeapon* Weapon = GetInventory()->GetWeapons()[NewIndex])
 	{
 		if(CurrentActorInfo->IsNetAuthority())
 		{
@@ -84,17 +84,19 @@ void UEquipWeaponAbility::Equip(const int32 NewIndex, bool bCancelled)
 			//if(Weapon->GetFP_EquipMontage()) if(UAnimInstance* AnimInstance = ShooterCharacter->GetFP_Mesh()->GetAnimInstance()) AnimInstance->Montage_Play(Weapon->GetFP_EquipMontage());
 		}
 		// Set the equipped item mesh to the weapon mesh
-		GetCharacter()->SetItemMesh(Weapon->GetMesh());
+		GetCharacter()->SetCurrentWeapon(Weapon);
+		//GetCharacter()->SetItemMesh(Weapon->GetMesh());
 
 		GetInventory()->SetCurrentIndex(NewIndex);
 	}
 }
 
-void UEquipWeaponAbility::Client_PredictionFailed_Implementation()
+void UEquipWeaponAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
-	Super::Client_PredictionFailed_Implementation();
-	
-	Equip(GetInventory()->GetLastIndex(), true);
+	Super::Client_PredictionFailed_Implementation(ActorInfo);
+
+	if(GetInventory()->GetWeapons().IsValidIndex(GetInventory()->GetLastIndex()))
+		Equip(GetInventory()->GetLastIndex(), true);
 }
 
 

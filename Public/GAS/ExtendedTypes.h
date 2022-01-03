@@ -1,13 +1,16 @@
 #pragma once
+
 #include "CoreMinimal.h"
 #include "AbilitySystemGlobals.h"
 #include "GameplayAbilities/Public/GameplayEffect.h"
 #include "GameplayAbilities/Public/Abilities/GameplayAbility.h"
+#include "GameplayAbilities/Public/GameplayCueManager.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "ExtendedTypes.generated.h"
 
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FGameplayAbilityActorInfoExtended : public FGameplayAbilityActorInfo
 {
 	GENERATED_BODY()
@@ -38,6 +41,13 @@ struct FGameplayEffectContextExtended : public FGameplayEffectContext
 {
 	GENERATED_USTRUCT_BODY()
 public:
+	FGameplayEffectContextExtended(){}
+	FGameplayEffectContextExtended(class AActor* Instigator, const FGameplayAbilityTargetDataHandle& TargetData)
+	{
+		this->Instigator = Instigator;
+		this->TargetData = TargetData;
+	}
+	
 	static FGameplayEffectContextExtended* Get(const FGameplayEffectContext* Other)
 	{
 		return (FGameplayEffectContextExtended*)Other;
@@ -75,11 +85,33 @@ public:
 
 	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override
 	{
-		return Super::NetSerialize(Ar, Map, bOutSuccess) && TargetData.NetSerialize(Ar, Map, bOutSuccess);
+		const bool bReturn = Super::NetSerialize(Ar, Map, bOutSuccess) && TargetData.NetSerialize(Ar, Map, bOutSuccess);
+		
+		uint8 RepBits = 0;
+		if(Ar.IsSaving())
+			RepBits |= 1 << 0;
+
+		Ar.SerializeBits(&RepBits, 1);
+
+		if(RepBits & 1 << 0)
+			Ar << Target;
+
+		return bReturn;
+	}
+
+	class AActor* GetTarget() const
+	{
+		return Target.Get();
+	}
+
+	FORCEINLINE void SetTarget(class AActor* InTarget)
+	{
+		Target = InTarget;
 	}
 
 protected:
 	FGameplayAbilityTargetDataHandle TargetData;
+	TWeakObjectPtr<class AActor> Target;
 };
 
 template<>
@@ -115,6 +147,7 @@ public:
 	UAbilitySystemGlobalsExtended();
 	
 	static UAbilitySystemGlobalsExtended& Get();
+	class UGameplayCueManagerExtended* GetGameplayCueManagerExtended();
 
 	virtual FGameplayEffectContext* AllocGameplayEffectContext() const override
 	{
@@ -134,6 +167,11 @@ public:
 		StunnedTag = FGameplayTag::RequestGameplayTag(FName("Status.Debuff.Stunned"));
 		BaseDamageTag = FGameplayTag::RequestGameplayTag(FName("Data.BaseDamage"));
 	}
+
+	virtual FORCEINLINE void InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec& Spec) override
+	{
+		Super::InitGameplayCueParameters_GESpec(CueParameters, Spec);
+	}
 	
 protected:
 	UPROPERTY()
@@ -149,6 +187,18 @@ public:
 	const FORCEINLINE FGameplayTag& GetDeadTag() const { return DeadTag; }
 	const FORCEINLINE FGameplayTag& GetStunnedTag() const { return StunnedTag; }
 	const FORCEINLINE FGameplayTag& GetBaseDamageTag() const { return BaseDamageTag; }
+};
+
+UCLASS()
+class MULTIPLAYERSHOOTER_API UGameplayCueManagerExtended : public UGameplayCueManager
+{
+	GENERATED_BODY()
+public:
+	UGameplayCueManagerExtended(){}
+protected:
+	virtual FORCEINLINE bool ShouldAsyncLoadRuntimeObjectLibraries() const override { return true; }
+	virtual void InvokeGameplayCueExecuted_FromSpec(UAbilitySystemComponent* OwningComponent, const FGameplayEffectSpec& Spec, FPredictionKey PredictionKey) override;
+	class UClass* GetGameplayCueNotifyClass(const FGameplayTag& GameplayCueTag);
 };
 
 

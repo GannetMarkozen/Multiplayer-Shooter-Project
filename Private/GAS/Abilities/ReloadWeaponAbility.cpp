@@ -11,7 +11,7 @@ UReloadWeaponAbility::UReloadWeaponAbility()
 {
 	Input = EAbilityInput::Reload;
 	
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::NonInstanced;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 }
 
@@ -35,7 +35,7 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	}
 }
 
-void UReloadWeaponAbility::Client_PredictionFailed_Implementation()
+void UReloadWeaponAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	PRINT(TEXT("%s Called"), *FString(__FUNCTION__));
 }

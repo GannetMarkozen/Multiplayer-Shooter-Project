@@ -4,29 +4,22 @@
 
 #include "CoreMinimal.h"
 #include "GAS/GASGameplayAbility.h"
-#include "EquipWeaponAbility.generated.h"
+#include "EquipAbility.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class MULTIPLAYERSHOOTER_API UEquipWeaponAbility : public UGASGameplayAbility
+class MULTIPLAYERSHOOTER_API UEquipAbility : public UGASGameplayAbility
 {
 	GENERATED_BODY()
 public:
-	UEquipWeaponAbility();
+	UEquipAbility();
 protected:
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const override;
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	virtual void Client_PredictionSucceeded_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo) override;
 	virtual void Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo) override;
 	
-	virtual void Equip(const int32 NewIndex, bool bCancelled = false);
-
-	UPROPERTY(BlueprintReadWrite, Category = "Weapons")
-	TArray<FGameplayAbilitySpecHandle> EquippedWeaponSpecHandles;
-	
-public:
-	UFUNCTION(BlueprintCallable, Category = "Weapons")
-	static bool EquipWeaponEvent(class UAbilitySystemComponent* TargetASC, const int32 Index);
+	void Equip(class AWeapon* NewWeapon, class AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo);
 };

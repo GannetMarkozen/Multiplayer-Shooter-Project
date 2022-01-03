@@ -16,4 +16,8 @@ UDamageEffect::UDamageEffect()
 
 	ApplicationTagRequirements.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Status.State.Dead")));
 	ApplicationTagRequirements.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Status.State.Invincible")));
+
+	FGameplayEffectCue Cue(TAG("GameplayCue.Damage"), 0.f, 0.f);
+	Cue.MagnitudeAttribute = UGASAttributeSet::GetHealthAttribute();
+	GameplayCues.Add(Cue);
 }

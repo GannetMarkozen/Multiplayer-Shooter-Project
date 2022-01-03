@@ -1,11 +1,13 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Info.h"
+#include "GameFramework/Actor.h"
+#include "GameplayTags/Public/GameplayTags.h"
+
 #include "Item.generated.h"
 
 UCLASS(Abstract)
-class MULTIPLAYERSHOOTER_API AItem : public AInfo
+class MULTIPLAYERSHOOTER_API AItem : public AActor
 {
 	GENERATED_BODY()
 public:
@@ -13,6 +15,9 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TObjectPtr<class UTexture2D> Thumbnail;
+	
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "Item"), Category = "Configurations")
+	FGameplayTag ItemTag;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	FText ItemName;
@@ -21,6 +26,9 @@ protected:
 	FText Description;
 
 public:
+	UFUNCTION(BlueprintPure, Category = "Item")
+	const FORCEINLINE FGameplayTag& GetItemTag() const { return ItemTag; }
+	
 	UFUNCTION(BlueprintNativeEvent, Category = "Item")
 	void Interact();
 	virtual FORCEINLINE void Interact_Implementation() { UE_LOG(LogTemp, Warning, TEXT("No Interact implementation on %s"), *GetName()); }

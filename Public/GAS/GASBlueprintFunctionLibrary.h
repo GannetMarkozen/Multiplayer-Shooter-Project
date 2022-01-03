@@ -1,10 +1,14 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "AbilitySystemInterface.h"
+#include "GASAbilitySystemComponent.h"
 #include "Abilities/GameplayAbilityTargetTypes.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GAS/ExtendedTypes.h"
 
 #include "GASBlueprintFunctionLibrary.generated.h"
+
+#define GAS UGASBlueprintFunctionLibrary
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API UGASBlueprintFunctionLibrary : public UBlueprintFunctionLibrary
@@ -12,8 +16,8 @@ class MULTIPLAYERSHOOTER_API UGASBlueprintFunctionLibrary : public UBlueprintFun
 	GENERATED_BODY()
 public:
 	// Returns the target data handle from the given effect context handle
-	UFUNCTION(BlueprintPure, Meta = (DisplayName = "GetTargetData"), Category = "GAS")
-	static FORCEINLINE FGameplayAbilityTargetDataHandle EffectContextGetTargetDataHandle(const FGameplayEffectContextHandle& EffectContextHandle)
+	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Get Target Data"), Category = "GAS")
+	static FORCEINLINE FGameplayAbilityTargetDataHandle GetTargetDataHandle(const FGameplayEffectContextHandle& EffectContextHandle)
 	{
 		if(const FGameplayEffectContextExtended* EffectContext = (const FGameplayEffectContextExtended*)EffectContextHandle.Get())
 		{
@@ -22,8 +26,8 @@ public:
 		else return FGameplayAbilityTargetDataHandle();
 	}
 
-	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "AddTargetData"), Category = "GAS")
-	static FORCEINLINE void EffectContextAddTargetDataHandle(const FGameplayEffectContextHandle& EffectContextHandle, const FGameplayAbilityTargetDataHandle& TargetDataHandle)
+	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "Add Target Data"), Category = "GAS")
+	static FORCEINLINE void AddTargetDataHandle(const FGameplayEffectContextHandle& EffectContextHandle, const FGameplayAbilityTargetDataHandle& TargetDataHandle)
 	{
 		if(FGameplayEffectContextExtended* EffectContext = (FGameplayEffectContextExtended*)EffectContextHandle.Get())
 		{
@@ -46,8 +50,8 @@ public:
 	}
 
 	// Returns the number of hit results with the actor to check from the target data handle
-	UFUNCTION(BlueprintPure, Meta = (DefaultToSelf = "Target", DisplayName = "GetNumberOfCompoundingHits"), Category = "GAS")
-	static FORCEINLINE int32 GetNumCompoundingHits(class AActor* ActorToCheck, const FGameplayAbilityTargetDataHandle& TargetData)
+	UFUNCTION(BlueprintPure, Meta = (DefaultToSelf = "Target", DisplayName = "Get Number Of Compounding Hits"), Category = "GAS")
+	static FORCEINLINE int32 GetNumCompoundingHits(const class AActor* ActorToCheck, const FGameplayAbilityTargetDataHandle& TargetData)
 	{
 		int32 NumHits = 0;
 		for(int32 i = 0; i < TargetData.Data.Num(); i++)
@@ -78,7 +82,7 @@ public:
 	}
 
 	UFUNCTION(BlueprintPure, Category = "GAS")
-	static FORCEINLINE void GetHitsFromTargetData(const FGameplayAbilityTargetDataHandle& TargetData, TArray<FHitResult>& OutHits)
+	static FORCEINLINE void GetHitArray(const FGameplayAbilityTargetDataHandle& TargetData, TArray<FHitResult>& OutHits)
 	{
 		for(int32 i = 0; i < TargetData.Data.Num(); i++)
 		{
@@ -91,4 +95,154 @@ public:
 			}
 		}
 	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static const FORCEINLINE FGameplayEffectContextHandle& GetContext(const FGameplayCueParameters& Params)
+	{
+		return Params.EffectContext;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE float GetRawMagnitude(const FGameplayCueParameters& Params)
+	{
+		return Params.RawMagnitude;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE float GetNormalizedMagnitude(const FGameplayCueParameters& Params)
+	{
+		return Params.NormalizedMagnitude;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "GAS")
+	static FORCEINLINE void SetTarget(const FGameplayEffectContextHandle& Context, class AActor* Target)
+	{
+		((FGameplayEffectContextExtended*)Context.Get())->SetTarget(Target);
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE class AActor* GetTarget(const FGameplayEffectContextHandle& Context)
+	{
+		return ((FGameplayEffectContextExtended*)Context.Get())->GetTarget();
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE class UGASAbilitySystemComponent* GetInstigatorAbilitySystemComponent(const FGameplayEffectContextHandle& Context)
+	{
+		return (UGASAbilitySystemComponent*)Context.GetInstigatorAbilitySystemComponent();
+	}
+
+	// Creates new handle with filtered target data
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE FGameplayAbilityTargetDataHandle FilterTargetDataByActor(const class AActor* ActorToFilter, const FGameplayAbilityTargetDataHandle& TargetData)
+	{
+		FGameplayAbilityTargetDataHandle Handle;
+		for(int32 i = 0; i < TargetData.Data.Num(); i++)
+		{
+			const FGameplayAbilityTargetData* Data = TargetData.Data[i].Get();
+			if(Data && Data->GetActors().Contains(ActorToFilter))
+			{
+				int32 Size = Data->GetScriptStruct()->GetStructureSize();
+				FGameplayAbilityTargetData* NewData = (FGameplayAbilityTargetData*)new char[Size];
+				char* NewDataItr = (char*)NewData;
+				char* DataItr = (char*)Data;
+				while(Size--) *NewDataItr++ = *DataItr++;
+				Handle.Add(NewData);
+			}
+		}
+		return Handle;
+	}
+
+	// Creates new handle with data that is confirmed using the TFunction<bool(const FGameplayAbilityTargetData&)> filter
+	static FORCEINLINE FGameplayAbilityTargetDataHandle FilterTargetDataBy(const FGameplayAbilityTargetDataHandle& TargetData, const TFunction<bool(const FGameplayAbilityTargetData&)>& Params)
+	{
+		FGameplayAbilityTargetDataHandle Handle;
+		for(int32 i = 0; i < TargetData.Data.Num(); i++)
+		{
+			const FGameplayAbilityTargetData* Data = TargetData.Data[i].Get();
+			if(Data && Params(*Data))
+			{
+				int32 Size = TargetData.Data[i].Get()->GetScriptStruct()->GetStructureSize();
+				FGameplayAbilityTargetData* NewData = (FGameplayAbilityTargetData*)new char[Size];
+				char* NewDataItr = (char*)NewData;
+				char* DataItr = (char*)Data;
+				while(Size--) *NewDataItr++ = *DataItr++;
+				Handle.Add(NewData);
+			}
+		}
+		return Handle;
+	}
+	
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE FGameplayAbilityTargetDataHandle MakeTargetDataFromHits(const TArray<FHitResult>& Hits)
+	{
+		FGameplayAbilityTargetDataHandle Handle;
+		for(const FHitResult& Hit : Hits)
+			Handle.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit));
+		return Handle;
+	}
+
+	// Template of target data struct type you want to extrapolate
+	template<typename T>
+	static FORCEINLINE FGameplayAbilityTargetDataHandle FilterTargetData(const FGameplayAbilityTargetDataHandle& TargetData)
+	{
+		FGameplayAbilityTargetDataHandle Handle;
+		for(int32 i = 0; i < TargetData.Data.Num(); i++)
+		{
+			if(TargetData.Data[i].IsValid() && TargetData.Data[i].Get()->GetScriptStruct() == (UScriptStruct*)T::StaticStruct())
+			{
+				Handle.Add(new T(static_cast<T&>(*TargetData.Data[i].Get())));
+			}
+		}
+		return Handle;
+	}
+
+	// Template of target data struct type you want to extrapolate. Puts all data into a TArray<T*>
+	template<typename T>
+	static FORCEINLINE TArray<T*> FilterTargetDataArray(const FGameplayAbilityTargetDataHandle& TargetData)
+	{
+		TArray<T*> Data;
+		for(int32 i = 0; i < TargetData.Data.Num(); i++)
+		{
+			if(TargetData.Data[i].IsValid() && TargetData.Data[i].Get()->GetScriptStruct() == T::StaticStruct())
+			{
+				Data.Add(static_cast<T*>(TargetData.Data[i].Get()));
+			}
+		}
+		return Data;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE void GetFilteredHitArray(const FGameplayAbilityTargetDataHandle& TargetData, const class AActor* Filter, TArray<FHitResult>& OutHits)
+	{
+		GetHitArray(TargetData, OutHits);
+		for(int32 i = 0; i < OutHits.Num(); i++)
+			if(OutHits[i].GetActor() != Filter) OutHits.RemoveAt(i);
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE class AShooterCharacter* GetCharacter(const FGameplayAbilityActorInfo& ActorInfo)
+	{
+		return ((const FGameplayAbilityActorInfoExtended&)ActorInfo).Character.Get();
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE class UCharacterInventoryComponent* GetCharacterInventory(const FGameplayAbilityActorInfo& ActorInfo)
+	{
+		return ((const FGameplayAbilityActorInfoExtended&)ActorInfo).Inventory.Get();
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE class UGASAbilitySystemComponent* GetASC(const FGameplayAbilityActorInfo& ActorInfo)
+	{
+		return ((const FGameplayAbilityActorInfoExtended&)ActorInfo).ASC.Get();
+	}
+
+	// Calculates the damage using the instigator's equipped weapon or base damage set by caller magnitude. Display damage only works if instigator is an AShooterCharacter
+	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Target"), Category = "GAS")
+	static int32 CalculateDamage(class AActor* Target, class AActor* Instigator, const FGameplayEffectSpecHandle& Spec, const bool bDisplayDamage = false);
+
+	// Only works if calculating target data from originating from FGameplayAbilityTargetData_SingleTargetHit or any other that would return a hit result
+	UFUNCTION(BlueprintCallable, Category = "GAS")
+	static void ApplyDamageKnockback(const FGameplayEffectContextHandle& Context, float Damage, float KnockbackMagnitude = 1.f);
 };

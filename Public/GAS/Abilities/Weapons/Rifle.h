@@ -3,18 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Weapon.h"
+#include "HitscanWeapon.h"
 #include "Rifle.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class MULTIPLAYERSHOOTER_API ARifle : public AWeapon
+class MULTIPLAYERSHOOTER_API ARifle : public AHitscanWeapon
 {
 	GENERATED_BODY()
 public:
 	ARifle();
 protected:
-	
 };

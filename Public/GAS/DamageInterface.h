@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayEffectTypes.h"
+#include "GameplayAbilities/Public/GameplayEffectExecutionCalculation.h"
 #include "DamageInterface.generated.h"
 
 
@@ -60,4 +61,21 @@ public:
 	{
 		IDamageInterface::ApplyDamage(Instigator, Target, Spec);
 	}
+};
+
+
+UINTERFACE(MinimalAPI)
+class UDamageCalculationInterface : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class MULTIPLAYERSHOOTER_API IDamageCalculationInterface
+{
+	GENERATED_BODY()
+	protected:
+	// Used to calculate the damage in damage effect execution and for other purposes
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Damage Calculation Interface")
+	int32 CalculateDamage(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const;
+	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const { return 0; }
 };

@@ -3,8 +3,11 @@
 
 #include "GAS/GASAbilitySystemComponent.h"
 
+#include "GameplayCueManager.h"
 #include "Character/ShooterCharacter.h"
 #include "GAS/GASGameplayAbility.h"
+#include "GameplayAbilities/Public/GameplayCueSet.h"
+#include "GameplayAbilities/Public/GameplayCueNotify_Static.h"
 
 
 
@@ -26,6 +29,38 @@ bool UGASAbilitySystemComponent::BatchRPCTryActivateAbility(const FGameplayAbili
 	}
 	
 	return bAbilityActivated;
+}
+
+TArray<FGameplayAbilitySpecHandle> UGASAbilitySystemComponent::GetAbilitiesByClass(const TSubclassOf<UGASGameplayAbility>& Class) const
+{
+	if(!Class) return {};
+	TArray<FGameplayAbilitySpecHandle> Handles;
+	for(const FGameplayAbilitySpec& Spec : ActivatableAbilities.Items)
+	{
+		if(Spec.Ability->GetClass() == Class)
+		{
+			Handles.Add(Spec.Handle);
+		}
+	}
+	return Handles;
+}
+
+
+void UGASAbilitySystemComponent::ExecuteGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters, const bool RPCLocalIfNecessary)
+{
+	if(RPCLocalIfNecessary) Client_ExecuteGameplayCueLocal(GameplayCueTag, GameplayCueParameters);
+	else Client_ExecuteGameplayCueLocal_Implementation(GameplayCueTag, GameplayCueParameters);
+}
+
+void UGASAbilitySystemComponent::AddGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
+{
+	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::OnActive, GameplayCueParameters);
+	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::WhileActive, GameplayCueParameters);
+}
+
+void UGASAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
+{
+	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Removed, GameplayCueParameters);
 }
 
 void UGASAbilitySystemComponent::AbilityLocalInputPressed(int32 InputID)
@@ -78,14 +113,14 @@ void UGASAbilitySystemComponent::ClientActivateAbilityFailed_Implementation(FGam
 	Super::ClientActivateAbilityFailed_Implementation(AbilityToActivate, PredictionKey);
 
 	if(const FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(AbilityToActivate))
-		if(UGASGameplayAbility* Ability = Cast<UGASGameplayAbility>(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance()))
-			CallClient_PredictionFailed(Ability);
+		if(UGASGameplayAbility* Ability = CastChecked<UGASGameplayAbility>(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance()))
+			CallClient_PredictionFailed(Ability, this);
 }
 
 // friend func
-void CallClient_PredictionFailed(UGASGameplayAbility* Ability)
+void CallClient_PredictionFailed(UGASGameplayAbility* Ability, UGASAbilitySystemComponent* ASC)
 {
-	if(Ability) Ability->Client_PredictionFailed();
+	if(Ability) Ability->Client_PredictionFailed((FGameplayAbilityActorInfoExtended&)*ASC->AbilityActorInfo.Get());
 }
 
 void UGASAbilitySystemComponent::ClientActivateAbilitySucceed_Implementation(FGameplayAbilitySpecHandle AbilityToActivate, FPredictionKey PredictionKey)
@@ -93,14 +128,14 @@ void UGASAbilitySystemComponent::ClientActivateAbilitySucceed_Implementation(FGa
 	Super::ClientActivateAbilitySucceed_Implementation(AbilityToActivate, PredictionKey);
 
 	if(const FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(AbilityToActivate))
-		if(UGASGameplayAbility* Ability = Cast<UGASGameplayAbility>(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance()))
-			CallClient_PredictionSucceeded(Ability);
+		if(UGASGameplayAbility* Ability = CastChecked<UGASGameplayAbility>(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance()))
+			CallClient_PredictionSucceeded(Ability, this);
 }
 
 // friend func
-void CallClient_PredictionSucceeded(UGASGameplayAbility* Ability)
+void CallClient_PredictionSucceeded(UGASGameplayAbility* Ability, UGASAbilitySystemComponent* ASC)
 {
-	if(Ability) Ability->Client_PredictionSucceeded();
+	if(Ability) Ability->Client_PredictionSucceeded((FGameplayAbilityActorInfoExtended&)*ASC->AbilityActorInfo.Get());
 }
 
 void UGASAbilitySystemComponent::ClientActivateAbilitySucceedWithEventData_Implementation(FGameplayAbilitySpecHandle AbilityToActivate, FPredictionKey PredictionKey, FGameplayEventData TriggerEventData)
@@ -108,14 +143,15 @@ void UGASAbilitySystemComponent::ClientActivateAbilitySucceedWithEventData_Imple
 	Super::ClientActivateAbilitySucceedWithEventData_Implementation(AbilityToActivate, PredictionKey, TriggerEventData);
 
 	if(const FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(AbilityToActivate))
-		if(UGASGameplayAbility* Ability = Cast<UGASGameplayAbility>(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance()))
-			CallClient_PredictionSucceededWithEventData(Ability, TriggerEventData);
+		if(UGASGameplayAbility* Ability = CastChecked<UGASGameplayAbility>(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance()))
+			CallClient_PredictionSucceededWithEventData(Ability, TriggerEventData, this);
 }
 
 // friend func
-void CallClient_PredictionSucceededWithEventData(UGASGameplayAbility* Ability, const FGameplayEventData& EventData)
+void CallClient_PredictionSucceededWithEventData(UGASGameplayAbility* Ability, const FGameplayEventData& EventData, UGASAbilitySystemComponent* ASC)
 {
-	if(Ability) Ability->Client_PredictionSucceededWithEventData(EventData);
+	if(Ability) Ability->Client_PredictionSucceededWithEventData(EventData, (FGameplayAbilityActorInfoExtended&)*ASC->AbilityActorInfo.Get());
 }
+
 
 

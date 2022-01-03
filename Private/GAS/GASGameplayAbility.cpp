@@ -3,20 +3,17 @@
 
 #include "GAS/GASGameplayAbility.h"
 #include "Character/ShooterCharacter.h"
+#include "GameplayAbilities/Public/GameplayCueManager.h"
 
 void UGASGameplayAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
-	/*
-	if(InstancingPolicy != EGameplayAbilityInstancingPolicy::NonInstanced)
-	if(ShooterCharacter = Cast<AShooterCharacter>(ActorInfo->AvatarActor))
-	{
-		ASC = ShooterCharacter->GetASC();
-		Inventory = ShooterCharacter->GetCharacterInventory();
-	}*/
+	K2_OnGiveAbility(*ActorInfo, Spec);
 }
 
 UCharacterMovementComponent* UGASGameplayAbility::GetCharacterMovement() const
 {
 	return GetActorInfoExtended()->Character.Get()->GetCharacterMovement();
 }
+
+

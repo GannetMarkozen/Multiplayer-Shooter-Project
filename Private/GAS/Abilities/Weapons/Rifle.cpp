@@ -7,8 +7,5 @@
 
 ARifle::ARifle()
 {
-	WeaponAbilities.Add(UFireWeaponAbility::StaticClass());
-
 	Ammo = 25;
-	bUseAmmo = true;
 }

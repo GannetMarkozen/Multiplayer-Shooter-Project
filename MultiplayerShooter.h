@@ -55,6 +55,14 @@ public:
 		return Container;
 	}
 
+	static FORCEINLINE FGameplayTagContainer CreateTagContainer(const TArray<FGameplayTagContainer>& Containers)
+	{
+		FGameplayTagContainer OutContainer;
+		for(const FGameplayTagContainer& Container : Containers)
+			OutContainer.AppendTags(Container);
+		return OutContainer;
+	}
+
 	UFUNCTION(BlueprintCallable)
 	static FORCEINLINE FString BoolToString(const bool bCheck) { return bCheck ? "true" : "false"; }
 
@@ -64,7 +72,7 @@ public:
 
 #define BOOLTOSTRING(bCheck) UMultiplayerShooterFunctionLibrary::BoolToString(bCheck)
 
-#define AUTHTOSTRING(bAuth) UMultiplayerShooterFunctionLibrary::AuthToString(bAuth)
+#define AUTHTOSTRING(bAuth) FString(bAuth ? "Server" : "Client")
 
 #define PRINT(...) if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, FColor::White, FString::Printf(##__VA_ARGS__))
 

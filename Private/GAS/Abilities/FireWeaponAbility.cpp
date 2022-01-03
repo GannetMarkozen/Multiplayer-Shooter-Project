@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Character/ShooterCharacter.h"
 #include "GAS/ExtendedTypes.h"
+#include "GAS/GASBlueprintFunctionLibrary.h"
 #include "GAS/Effects/DamageEffect.h"
 #include "Objects/LineTraceObject.h"
 
@@ -27,6 +28,9 @@ UFireWeaponAbility::UFireWeaponAbility()
 void UFireWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
+
+	if(INVENTORY->GetCurrent())
+		LineTraceObject.Get()->Range = INVENTORY->GetCurrent()->GetRange();
 
 	if(ActorInfo->IsNetAuthority() && !ActorInfo->IsLocallyControlled())
 	{
@@ -54,9 +58,8 @@ void UFireWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	FGameplayAbilityTargetDataHandle DataHandle;
 	for(const FHitResult& Hit : Hits)
 	{
-		if(!Hit.IsValidBlockingHit()) continue;
-		FGameplayAbilityTargetData_SingleTargetHit* Data = new FGameplayAbilityTargetData_SingleTargetHit(Hit);
-		DataHandle.Add(Data);
+		if(Hit.IsValidBlockingHit())
+			DataHandle.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit));
 	}
 		
 	if(!DataHandle.Data.IsEmpty())
@@ -85,19 +88,46 @@ void UFireWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	{
 		Server_ReceivedEvent();
 	}
-
+	
 	EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }
 
 void UFireWeaponAbility::Server_ReceivedEvent_Implementation() const
 {
-	//PRINT(TEXT("%s: Received generic replicated event"), *AUTHTOSTRING(CurrentActorInfo->IsNetAuthority()));
 	GetInventory()->GetCurrent()->OnFire();
 }
 
 void UFireWeaponAbility::Server_ReceivedTargetData_Implementation(const FGameplayAbilityTargetDataHandle& Handle, FGameplayTag Tag) const
 {
-	//TArray<IDamageInterface*> DamageableHits;
+	const FGameplayEffectContextHandle& Context = GetASC()->MakeEffectContext();
+	((FGameplayEffectContextExtended*)Context.Get())->AddTargetData(Handle);
+
+	const FGameplayEffectSpecHandle& Spec = GetASC()->MakeOutgoingSpec(DamageEffectClass, 1.f, Context);
+	Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrent()->GetDamageCalculationTags());
+	//Spec.Data.Get()->SetByCallerTagMagnitudes.Add(UAbilitySystemGlobalsExtended::Get().GetBaseDamageTag(), GetInventory()->GetCurrent()->GetBaseDamage());
+
+	GetASC()->ExecuteGameplayCue(TAG("GameplayCue.Impact.Bullet"), Context);
+
+	TArray<AActor*> Targets;
+	for(const TSharedPtr<FGameplayAbilityTargetData>& Data : GAS::FilterTargetData<FGameplayAbilityTargetData_SingleTargetHit>(Handle).Data)
+		if(const FHitResult* Hit = Data.Get()->GetHitResult())
+			if(Hit->Component.IsValid() && Hit->GetComponent()->IsSimulatingPhysics(Hit->BoneName) && Targets.Find(Hit->GetActor()) == INDEX_NONE)
+				Targets.Add(Hit->GetActor());
+
+	for(const AActor* Target : Targets)
+	{
+		FGameplayCueParameters Params(FGameplayEffectContextHandle(new FGameplayEffectContextExtended(GetCharacter(), GAS::FilterTargetDataByActor(Target, Handle))));
+		Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrent(), Target, Spec);
+		GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Knockback"), FPredictionKey(), Params);
+	}
+		
+		
+	
+	/*
+	FGameplayCueParameters Params(Context);
+	Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrent(), )
+	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetCharacter(), TAG("GameplayCue.Knockback"), EGameplayCueEvent::Executed, Params);*/
+	
 	TArray<AActor*> DamageableHits;
 	for(int32 i = 0; i < Handle.Data.Num(); i++)
 	{
@@ -115,13 +145,6 @@ void UFireWeaponAbility::Server_ReceivedTargetData_Implementation(const FGamepla
 	
 	if(!DamageableHits.IsEmpty())
 	{
-		const FGameplayEffectContextHandle& Context = GetASC()->MakeEffectContext();
-		((FGameplayEffectContextExtended*)Context.Get())->AddTargetData(Handle);
-
-		const FGameplayEffectSpecHandle& Spec = GetASC()->MakeOutgoingSpec(DamageEffectClass, 1.f, Context);
-		Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrent()->GetDamageCalculationTags());
-		Spec.Data.Get()->SetByCallerTagMagnitudes.Add(UAbilitySystemGlobalsExtended::Get().GetBaseDamageTag(), GetInventory()->GetCurrent()->GetBaseDamage());
-		
 		if(Spec.IsValid())
 		{
 			for(AActor* DamageableHit : DamageableHits)
@@ -133,5 +156,5 @@ void UFireWeaponAbility::Server_ReceivedTargetData_Implementation(const FGamepla
 
 	GetASC()->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
 	
-	Server_ReceivedEvent();
+	Server_ReceivedEvent_Implementation();
 }

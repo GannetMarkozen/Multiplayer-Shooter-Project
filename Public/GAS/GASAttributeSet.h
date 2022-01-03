@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameplayAbilities/Public/AttributeSet.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
+#include "MultiplayerShooter/MultiplayerShooter.h"
+
 #include "GASAttributeSet.generated.h"
 
 // Helper macros from Attribute.h
@@ -25,6 +27,7 @@ public:
 	UGASAttributeSet();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data) override;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, Category = "Attributes")
 	FGameplayAttributeData Health;

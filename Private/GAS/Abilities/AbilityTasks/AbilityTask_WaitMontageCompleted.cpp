@@ -52,7 +52,7 @@ void UAbilityTask_WaitMontageCompleted::OnDestroy(bool bAbilityEnded)
 	}
 }*/
 
-void UAbilityTask_WaitMontageCompleted::EndMontage()
+void UAbilityTask_WaitMontageCompleted::EndMontage(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	AnimInstance->Montage_Stop(0.f, Montage);
 
