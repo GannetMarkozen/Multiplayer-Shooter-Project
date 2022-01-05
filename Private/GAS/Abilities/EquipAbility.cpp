@@ -14,8 +14,6 @@ UEquipAbility::UEquipAbility()
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
 	ActivationBlockedTags.AddTag(TAG("Status.Debuff.Stunned"));
 
-	ActivationOwnedTags.AddTag(TAG("Status.State.Equipping"));
-
 	FAbilityTriggerData Trigger;
 	Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
 	Trigger.TriggerTag = TAG("Event.Equip");
@@ -37,15 +35,21 @@ void UEquipAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 		if(INVENTORY->GetWeapons().IsValidIndex(Index))
 		{
 			INVENTORY->SetCurrentIndex(Index);
-			Equip(INVENTORY->GetWeapons()[Index], INVENTORY->GetCurrent(), (FGameplayAbilityActorInfoExtended&)*ActorInfo);
+			AWeapon* NewWeapon = INVENTORY->GetWeapons()[Index];
+			if(NewWeapon) // Add equipping loose gameplay tags
+				GET_ASC->AddLooseGameplayTagForDurationSingle(TAG("Status.State.Equipping"), NewWeapon->GetWeaponSwapDuration());
+			
+			Equip(NewWeapon, INVENTORY->GetCurrent(), (FGameplayAbilityActorInfoExtended&)*ActorInfo);
 			EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 		}
 	}
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 }
 
-void UEquipAbility::Equip(AWeapon* NewWeapon, AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo)
+void UEquipAbility::Equip_Implementation(AWeapon* NewWeapon, AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
+	// Remove any tags related to weapon state
+	ActorInfo.ASC.Get()->RemoveLooseGameplayTagChildren(TAG("WeaponState"));
 	if(OldWeapon)
 	{
 		OldWeapon->GetFP_Mesh()->SetVisibility(false);
@@ -79,5 +83,14 @@ void UEquipAbility::Client_PredictionFailed_Implementation(const FGameplayAbilit
 	const UCharacterInventoryComponent* Inventory = ActorInfo.Inventory.Get();
 	if(Inventory->GetWeapons().IsValidIndex(Inventory->GetLastIndex()))
 		Equip(Inventory->GetWeapons()[Inventory->GetLastIndex()], Inventory->GetCurrent(), ActorInfo);
+}
+
+void UEquipAbility::EquipWeapon(UAbilitySystemComponent* ASC, int32 Index)
+{
+	if(!ASC) return;
+	FGameplayEventData Data;
+	Data.Target = ASC->GetOwner();
+	Data.EventMagnitude = Index;
+	ASC->HandleGameplayEvent(TAG("Event.Equip"), &Data);
 }
 

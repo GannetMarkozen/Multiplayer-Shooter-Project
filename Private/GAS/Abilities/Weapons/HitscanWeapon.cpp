@@ -3,12 +3,12 @@
 
 #include "GAS/Abilities/Weapons/HitscanWeapon.h"
 
-#include "GAS/Abilities/FireWeaponAbility.h"
+#include "GAS/Abilities/HitscanAbility.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
 
 AHitscanWeapon::AHitscanWeapon()
 {
-	WeaponAbilities.Add(UFireWeaponAbility::StaticClass());
+	WeaponAbilities.Add(UHitscanAbility::StaticClass());
 	bUseAmmo = true;
 }
 

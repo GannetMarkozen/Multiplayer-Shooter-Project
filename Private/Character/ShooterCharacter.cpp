@@ -11,7 +11,6 @@
 #include "GAS/ExtendedTypes.h"
 #include "GAS/GASAttributeSet.h"
 #include "GAS/GASGameplayAbility.h"
-#include "GAS/Abilities/EquipWeaponAbility.h"
 #include "GAS/Abilities/Weapons/Weapon.h"
 #include "GAS/Effects/DeathEffect.h"
 #include "Net/UnrealNetwork.h"
@@ -171,16 +170,20 @@ void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
 	{
 		CurrentWeapon->GetFP_Mesh()->SetVisibility(true);
 		CurrentWeapon->GetTP_Mesh()->SetVisibility(true);
-		
+
+		// Play third person equip montage to all instances
 		if(UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 			if(UAnimMontage* Montage = CurrentWeapon->GetTP_EquipMontage())
 				AnimInstance->Montage_Play(Montage);
-		
+
+		// If locally controlled, play first person equip montage
 		if(IsLocallyControlled())
 			if(UAnimInstance* AnimInstance = GetFP_Mesh()->GetAnimInstance())
 				if(UAnimMontage* Montage = CurrentWeapon->GetFP_EquipMontage())
 					AnimInstance->Montage_Play(Montage);
 	}
+	
+	ChangedWeaponsDelegate.Broadcast(CurrentWeapon, LastWeapon);
 }
 
 

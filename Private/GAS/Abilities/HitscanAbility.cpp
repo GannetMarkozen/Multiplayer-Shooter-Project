@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GAS/Abilities/FireWeaponAbility.h"
+#include "GAS/Abilities/HitscanAbility.h"
 
 #include "DrawDebugHelpers.h"
 #include "Camera/CameraComponent.h"
@@ -11,7 +11,7 @@
 #include "GAS/Effects/DamageEffect.h"
 #include "Objects/LineTraceObject.h"
 
-UFireWeaponAbility::UFireWeaponAbility()
+UHitscanAbility::UHitscanAbility()
 {
 	LineTraceObject = CreateDefaultSubobject<ULineTraceObject>(TEXT("LineTraceObject"));
 	DamageEffectClass = UDamageEffect::StaticClass();
@@ -23,32 +23,44 @@ UFireWeaponAbility::UFireWeaponAbility()
 	
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
-	ActivationBlockedTags.AddTag(TAG("Status.State.Reloading"));
+	ActivationBlockedTags.AddTag(TAG("Status.State.Equipping"));
+	ActivationBlockedTags.AddTag(TAG("WeaponState.Reloading"));
 }
 
-void UFireWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+void UHitscanAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
 
-	if(INVENTORY->GetCurrent())
-		LineTraceObject.Get()->Range = INVENTORY->GetCurrent()->GetRange();
+	if(const AWeapon* Weapon = INVENTORY->GetCurrent())
+	{
+		LineTraceObject.Get()->Range = Weapon->GetRange();
+		NumShots = Weapon->GetNumShots();
+	}
 
 	if(ActorInfo->IsNetAuthority() && !ActorInfo->IsLocallyControlled())
 	{
-		GET_ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UFireWeaponAbility::Server_ReceivedEvent);
-		GET_ASC->AbilityTargetDataSetDelegate(Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UFireWeaponAbility::Server_ReceivedTargetData);
+		GET_ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UHitscanAbility::Server_ReceivedEvent);
+		GET_ASC->AbilityTargetDataSetDelegate(Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UHitscanAbility::Server_ReceivedTargetData);
 	}
 }
 
-bool UFireWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+bool UHitscanAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {// Must be able to fire to activate ability
 	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && GetInventory()->GetCurrent() && GetInventory()->GetCurrent()->CanFire();
 }
 
 
-void UFireWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if(ActorInfo->IsLocallyControlled())
+	{// If locally controlled, play local firing animation
+		FGameplayCueParameters Params;
+		Params.Instigator = CHARACTER;
+		Params.EffectContext = GET_ASC->MakeEffectContextExtended(CHARACTER);
+		GET_ASC->ExecuteGameplayCueLocal(TAG("GameplayCue.FireWeapon.Local"), Params);
+	}
 
 	TArray<FHitResult> Hits;
 	for(int32 i = 0; i < NumShots; i++)
@@ -65,8 +77,6 @@ void UFireWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		
 	if(!DataHandle.Data.IsEmpty())
 	{
-		//const FGameplayAbilityTargetDataHandle& DataHandle(Data);
-
 		// Replicate target data if server, otherwise simply call the function
 		if(!ActorInfo->IsNetAuthority())
 		{
@@ -93,21 +103,36 @@ void UFireWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }
 
-void UFireWeaponAbility::Server_ReceivedEvent_Implementation() const
+void UHitscanAbility::Server_ReceivedEvent_Implementation() const
 {
+	if(!CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
+	{
+		GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
+		return;
+	}
+	
 	GetInventory()->GetCurrent()->OnFire();
 }
 
-void UFireWeaponAbility::Server_ReceivedTargetData_Implementation(const FGameplayAbilityTargetDataHandle& Handle, FGameplayTag Tag) const
+void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAbilityTargetDataHandle& Handle, FGameplayTag Tag) const
 {
+	GetASC()->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+
+	// if can't activate ability server-side. Do nothing
+	if(!CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
+	{
+		GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
+		return;
+	}
+	
 	const FGameplayEffectContextHandle& Context = GetASC()->MakeEffectContext();
 	((FGameplayEffectContextExtended*)Context.Get())->AddTargetData(Handle);
 
 	const FGameplayEffectSpecHandle& Spec = GetASC()->MakeOutgoingSpec(DamageEffectClass, 1.f, Context);
 	Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrent()->GetDamageCalculationTags());
-	//Spec.Data.Get()->SetByCallerTagMagnitudes.Add(UAbilitySystemGlobalsExtended::Get().GetBaseDamageTag(), GetInventory()->GetCurrent()->GetBaseDamage());
 
-	GetASC()->ExecuteGameplayCue(TAG("GameplayCue.Impact.Bullet"), Context);
+	GetASC()->NetMulticast_InvokeGameplayCueExecuted(TAG("GameplayCue.Impact.Bullet"), CurrentActivationInfo.GetActivationPredictionKey(), Context);
+	GetASC()->NetMulticast_InvokeGameplayCueExecuted(TAG("GameplayCue.FireWeapon.NetMulticast"), CurrentActivationInfo.GetActivationPredictionKey(), GetASC()->MakeEffectContext());
 
 	TArray<AActor*> Targets;
 	for(const TSharedPtr<FGameplayAbilityTargetData>& Data : GAS::FilterTargetData<FGameplayAbilityTargetData_SingleTargetHit>(Handle).Data)
@@ -121,13 +146,6 @@ void UFireWeaponAbility::Server_ReceivedTargetData_Implementation(const FGamepla
 		Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrent(), Target, Spec);
 		GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Knockback"), FPredictionKey(), Params);
 	}
-		
-		
-	
-	/*
-	FGameplayCueParameters Params(Context);
-	Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrent(), )
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetCharacter(), TAG("GameplayCue.Knockback"), EGameplayCueEvent::Executed, Params);*/
 	
 	TArray<AActor*> DamageableHits;
 	for(int32 i = 0; i < Handle.Data.Num(); i++)
@@ -155,7 +173,5 @@ void UFireWeaponAbility::Server_ReceivedTargetData_Implementation(const FGamepla
 		}
 	}
 
-	GetASC()->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
-	
 	Server_ReceivedEvent_Implementation();
 }

@@ -3,6 +3,7 @@
 #include "AbilitySystemInterface.h"
 #include "GASAbilitySystemComponent.h"
 #include "Abilities/GameplayAbilityTargetTypes.h"
+#include "Abilities/Weapons/Weapon.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GAS/ExtendedTypes.h"
 
@@ -221,6 +222,12 @@ public:
 	}
 
 	UFUNCTION(BlueprintPure, Category = "GAS")
+	static const FORCEINLINE FGameplayAbilityActorInfoExtended& ExtendActorInfo(const FGameplayAbilityActorInfo& ActorInfo)
+	{
+		return (const FGameplayAbilityActorInfoExtended&)ActorInfo;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
 	static FORCEINLINE class AShooterCharacter* GetCharacter(const FGameplayAbilityActorInfo& ActorInfo)
 	{
 		return ((const FGameplayAbilityActorInfoExtended&)ActorInfo).Character.Get();
@@ -236,6 +243,40 @@ public:
 	static FORCEINLINE class UGASAbilitySystemComponent* GetASC(const FGameplayAbilityActorInfo& ActorInfo)
 	{
 		return ((const FGameplayAbilityActorInfoExtended&)ActorInfo).ASC.Get();
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE bool IsNetAuthority(const FGameplayAbilityActorInfoExtended& ActorInfo)
+	{
+		return ActorInfo.IsNetAuthority();
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE bool IsLocallyControlled(const FGameplayAbilityActorInfoExtended& ActorInfo)
+	{
+		return ActorInfo.IsLocallyControlled();
+	}
+
+	UFUNCTION(BlueprintPure, Meta = (DefaultToSelf = "Instigator", AutoCreateRefTerm = "TargetData"), Category = "GAS")
+	static FORCEINLINE FGameplayEffectContextHandle MakeEffectContextHandle(const class UAbilitySystemComponent* ASC, class AActor* Target, const FGameplayAbilityTargetDataHandle& TargetData)
+	{
+		if(!ASC) return FGameplayEffectContextHandle();
+		const FGameplayEffectContextHandle& Context = ASC->MakeEffectContext();
+		((FGameplayEffectContextExtended*)Context.Get())->SetTarget(Target);
+		((FGameplayEffectContextExtended*)Context.Get())->AddTargetData(TargetData);
+		return Context;
+	}
+
+	UFUNCTION(BlueprintPure, Meta = (AutoCreateRefTerm = "Name"), Category = "GAS")
+	static FORCEINLINE bool FindMeshTableRow(const class UDataTable* DataTable, const FName& Name, FMeshTableRow& MeshTableRow)
+	{
+		if(!DataTable) return false;
+		if(const FMeshTableRow* Query = DataTable->FindRow<FMeshTableRow>(Name, "Context"))
+		{
+			MeshTableRow = *Query;
+			return true;
+		}
+		return false;
 	}
 
 	// Calculates the damage using the instigator's equipped weapon or base damage set by caller magnitude. Display damage only works if instigator is an AShooterCharacter

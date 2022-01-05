@@ -4,6 +4,7 @@
 #include "GAS/GASAbilitySystemComponent.h"
 
 #include "GameplayCueManager.h"
+#include "GameplayEffectExtension.h"
 #include "Character/ShooterCharacter.h"
 #include "GAS/GASGameplayAbility.h"
 #include "GameplayAbilities/Public/GameplayCueSet.h"
@@ -45,6 +46,42 @@ TArray<FGameplayAbilitySpecHandle> UGASAbilitySystemComponent::GetAbilitiesByCla
 	return Handles;
 }
 
+void UGASAbilitySystemComponent::BindAttributeChanged(UObject* Object, const FName FuncName, const FGameplayAttribute& Attribute)
+{
+	if(!Object || !FuncName.IsValid() || !Attribute.IsValid() || !HasAttributeSetForAttribute(Attribute)) return;
+	/*
+	FAttributeChangedDelegate Delegate;
+	Delegate.BindUFunction(Object, FuncName);*/
+
+	if(UFunction* Func = Object->GetClass()->FindFunctionByName(FuncName))
+	{
+		const auto& Callback = [=](const FOnAttributeChangeData& Data)->void
+		{
+			if(!IsValid(Object)) return;
+			FGameplayEffectSpecHandle Handle;
+			if(Data.GEModData) Handle.Data = (TSharedPtr<FGameplayEffectSpec>)new FGameplayEffectSpec(Data.GEModData->EffectSpec);
+			AttrChParams Params(Data.NewValue, Data.OldValue, Handle);
+			Object->ProcessEvent(Func, &Params);
+		};
+	
+		const FDelegateHandle& DelegateHandle = GetGameplayAttributeValueChangeDelegate(Attribute).AddLambda(Callback);
+		DelegateHandles.Add(FObjAttrPair(Object, Attribute), DelegateHandle);
+	}
+}
+
+void UGASAbilitySystemComponent::UnbindAttributeChanged(UObject* Object, const FGameplayAttribute& Attribute)
+{
+	if(!Object || !Attribute.IsValid()) return;
+	
+	if(const FDelegateHandle* Handle = DelegateHandles.Find(FObjAttrPair(Object, Attribute)))
+	{
+		GetGameplayAttributeValueChangeDelegate(Attribute).Remove(*Handle);
+		DelegateHandles.Remove(FObjAttrPair(Object, Attribute));
+	}
+	else UE_LOG(LogTemp, Error, TEXT("Could not find %s %s set delegate pair"), *Object->GetName(), *Attribute.GetName());
+}
+
+
 
 void UGASAbilitySystemComponent::ExecuteGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters, const bool RPCLocalIfNecessary)
 {
@@ -63,23 +100,46 @@ void UGASAbilitySystemComponent::RemoveGameplayCueLocal(const FGameplayTag Gamep
 	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Removed, GameplayCueParameters);
 }
 
-void UGASAbilitySystemComponent::AddLooseGameplayTagsForDuration(const FGameplayTagContainer& Tags, const float Duration, const int32 Count)
+void UGASAbilitySystemComponent::AddLooseGameplayTagForDuration(const FGameplayTag& Tag, const float Duration, const int32 Count)
 {
-	if(Tags.IsEmpty()) return;
-	PRINT(TEXT("Added %s"), *Tags.ToString());
-	AddLooseGameplayTags(Tags, Count);
-	FTimerHandle RemoveHandle;
-	TimerHandles.Add(RemoveHandle);
-	const auto& RemoveTags = [this, Tags, Count, &RemoveHandle]()->void
+	if(!Tag.IsValid()) return;
+	AddLooseGameplayTag(Tag, Count);
+	FTimerHandle* RemoveHandle = new FTimerHandle();
+	TimerHandles.Add(Tag, (TSharedPtr<FTimerHandle>)RemoveHandle);
+	const auto& RemoveTagFunc = [=]()->void
 	{
 		if(!IsValid(this)) return;
-		RemoveLooseGameplayTags(Tags, Count);
-		TimerHandles.Remove(RemoveHandle);
-		PRINT(TEXT("Removed %s"), *Tags.ToString());
+		RemoveLooseGameplayTag(Tag, Count);
+		TimerHandles.Remove(Tag);
 	};
 	
-	GetWorld()->GetTimerManager().SetTimer(RemoveHandle, RemoveTags, Duration, false);
+	GetWorld()->GetTimerManager().SetTimer(*RemoveHandle, RemoveTagFunc, Duration, false);
 }
+
+void UGASAbilitySystemComponent::AddLooseGameplayTagForDurationSingle(const FGameplayTag& Tag, const float Duration)
+{
+	if(!Tag.IsValid()) return;
+	if(FTimerHandle** HandlePtr = (FTimerHandle**)TimerHandles.Find(Tag))
+	{// Clear timer and reset with new duration if it exceeds current remaining duration
+		FTimerHandle& Handle = **HandlePtr;
+		if(GetWorld()->GetTimerManager().GetTimerRemaining(Handle) < Duration)
+		{
+			const auto& RemoveTagFunc = [=]()->void
+			{
+				if(!IsValid(this)) return;
+				RemoveLooseGameplayTag(Tag, 1);
+				TimerHandles.Remove(Tag);
+			};
+			GetWorld()->GetTimerManager().ClearTimer(Handle);
+			GetWorld()->GetTimerManager().SetTimer(Handle, RemoveTagFunc, Duration, false);
+		}
+	}
+	else
+	{// If no current active duration tags, create one
+		AddLooseGameplayTagForDuration(Tag, Duration, 1);
+	}
+}
+
 
 void UGASAbilitySystemComponent::AbilityLocalInputPressed(int32 InputID)
 {

@@ -4,7 +4,7 @@
 #include "Character/CharacterInventoryComponent.h"
 
 #include "Character/ShooterCharacter.h"
-#include "GAS/Abilities/EquipWeaponAbility.h"
+#include "GAS/Abilities/EquipAbility.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -32,7 +32,7 @@ void UCharacterInventoryComponent::BeginPlay()
 		const auto& Equip = [this]()->void
 		{
 			if(!IsValid(this)) return;
-			UEquipWeaponAbility::EquipWeaponEvent(OwningCharacter->GetASC(), DefaultItemIndex);
+			UEquipAbility::EquipWeapon(OwningCharacter->GetASC(), DefaultItemIndex);
 		};
 		
 		GetWorld()->GetTimerManager().SetTimer(EquipDelayTimerHandle, Equip, 0.5f, false);
@@ -54,6 +54,7 @@ void UCharacterInventoryComponent::RemoveAbilities()
 {
 	for(const FGameplayAbilitySpecHandle& Handle : ActiveWeaponAbilities)
 	{
+		OwningCharacter->GetASC()->CancelAbilityHandle(Handle);
 		OwningCharacter->GetASC()->SetRemoveAbilityOnEnd(Handle);
 	}
 	ActiveWeaponAbilities.Empty();

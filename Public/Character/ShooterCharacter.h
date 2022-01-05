@@ -12,6 +12,8 @@
 
 #include "ShooterCharacter.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FChangedWeapons, class AWeapon*, NewWeapon, const class AWeapon*, OldWeapon);
+
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterCharacter : public ACharacter, public IAbilitySystemInterface, public IInventoryInterface, public IDamageInterface
 {
@@ -175,6 +177,10 @@ protected:
 	// The current weapon equipped
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_Weapon, Category = "Character")
 	class AWeapon* CurrentWeapon;
+
+	// Called whenever swapping weapons
+	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
+	FChangedWeapons ChangedWeaponsDelegate;
 	
 	// Called when swapped weapon
 	UFUNCTION(BlueprintNativeEvent, Category = "Character")

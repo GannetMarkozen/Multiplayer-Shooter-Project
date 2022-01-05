@@ -10,6 +10,51 @@
 
 #include "GASAbilitySystemComponent.generated.h"
 
+//DECLARE_DELEGATE_ThreeParams(FAttributeChangedDelegate, float, float, const FGameplayEffectSpecHandle&);
+
+// Object attribute pair hash key for TMap
+USTRUCT()
+struct FObjAttrPair
+{
+	GENERATED_BODY()
+	UPROPERTY()
+	UObject* Obj = nullptr;
+	FGameplayAttribute Attr;
+	FObjAttrPair(){}
+	FObjAttrPair(class UObject* Obj, const FGameplayAttribute& Attr) { this->Obj = Obj; this->Attr = Attr; }
+	bool operator==(const FObjAttrPair& Other) const
+	{
+		return Obj == Other.Obj && Attr == Other.Attr;
+	}
+	friend FORCEINLINE uint32 GetTypeHash(const FObjAttrPair& Other)
+	{
+		return FCrc::MemCrc32(&Other, sizeof(FObjAttrPair));
+	}
+};
+// Attribute Changed Parameters
+struct AttrChParams
+{
+	float NewValue;
+	float OldValue;
+	FGameplayEffectSpecHandle Spec;
+	AttrChParams(){}
+	AttrChParams(const float NewValue, const float OldValue, const FGameplayEffectSpecHandle& Spec)
+	{
+		this->NewValue = NewValue; this->OldValue = OldValue; this->Spec = Spec;
+	}
+};
+/*
+struct FDelegateHandlePair
+{
+	FAttributeChangedDelegate AttributeDelegate;
+	FDelegateHandle DelegateHandle;
+	FDelegateHandlePair(){}
+	FDelegateHandlePair(const FAttributeChangedDelegate& AttributeDelegate, const FDelegateHandle& DelegateHandle)
+	{
+		this->AttributeDelegate = AttributeDelegate; this->DelegateHandle = DelegateHandle;
+	}
+};*/
+
 /**
  * 
  */
@@ -33,6 +78,12 @@ public:
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "GameplayCueParameters", GameplayTagFilter = "GameplayCue"), Category = "GameplayCue")
 	FORCEINLINE void RemoveGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters);
 
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "GameplayCueParameters", GameplayTagFilter = "GameplayCue"), Category = "GameplayCue")
+	FORCEINLINE void ExecuteGameplayCueNetMulticast(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
+	{
+		NetMulticast_InvokeGameplayCueExecuted_WithParams(GameplayCueTag, FPredictionKey(), GameplayCueParameters);
+	}
+ 
 	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "Make Effect Context Extended"), Category = "GAS")
 	FORCEINLINE FGameplayEffectContextHandle K2_MakeEffectContextExtended(class AActor* OptionalTargetActor, const FGameplayAbilityTargetDataHandle OptionalTargetData) const
 	{
@@ -59,8 +110,33 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove Loose Gameplay Tag"), Category = "GAS")
 	FORCEINLINE void BP_RemoveLooseGameplayTag(const FGameplayTag Tag, const int32 Count = 1) { RemoveLooseGameplayTag(Tag, Count); }
 
-	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tags"), Category = "GAS")
-	void AddLooseGameplayTagsForDuration(const FGameplayTagContainer& Tags, const float Duration, const int32 Count = 1);
+	// Removes exact present gameplay tag and children tags
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tag"), Category = "GAS")
+	FORCEINLINE void RemoveLooseGameplayTagChildren(const FGameplayTag& Tag, const int32 Count = 1)
+	{
+		if(!Tag.IsValid()) return;
+		FGameplayTagContainer Tags;
+		GetOwnedGameplayTags(Tags);
+		for(TArray<FGameplayTag>::TConstIterator Itr(Tags.CreateConstIterator()); Itr; ++Itr)
+			if(Itr->MatchesTag(Tag))
+				RemoveLooseGameplayTag(*Itr, Count);
+	}
+
+	// Adds loose tag for the given duration
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tag"), Category = "GAS")
+	void AddLooseGameplayTagForDuration(const FGameplayTag& Tag, const float Duration, const int32 Count = 1);
+
+	// Only adds tag if there is none currently added for a duration. Else sets time for removal to the given duration
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tag"), Category = "GAS")
+	void AddLooseGameplayTagForDurationSingle(const FGameplayTag& Tag, const float Duration);
+
+	// Binds attribute changing to object function. Params are float (NewValue), float (OldValue), const FGameplayEffectContextHandle& (Context)
+	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Object", AutoCreateRefTerm = "Attribute"), Category = "GAS")
+	void BindAttributeChanged(class UObject* Object, const FName FuncName, const FGameplayAttribute& Attribute);
+
+	// Unbinds all bindings from this object associated with the attribute
+	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Object", AutoCreateRefTerm = "Attribute"), Category = "GAS")
+	void UnbindAttributeChanged(class UObject* Object, const FGameplayAttribute& Attribute);
 	
 protected:
 	virtual void AbilityLocalInputPressed(int32 InputID) override;
@@ -76,5 +152,10 @@ protected:
 		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Executed, Params);
 	}
 
-	TArray<FTimerHandle> TimerHandles;
+	// Timer handle TSharedPtrs associated with a gameplay tag
+	TMap<FGameplayTag, TSharedPtr<FTimerHandle>> TimerHandles;
+	TMap<FObjAttrPair, FDelegateHandle> DelegateHandles;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "TEST")
+	int32 NumDelegates = 0;
 };

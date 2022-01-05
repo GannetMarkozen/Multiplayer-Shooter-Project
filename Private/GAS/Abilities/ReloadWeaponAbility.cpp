@@ -15,7 +15,7 @@ UReloadWeaponAbility::UReloadWeaponAbility()
 
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
-	ActivationBlockedTags.AddTag(TAG("Status.State.Reloading"));
+	ActivationBlockedTags.AddTag(TAG("WeaponState.Reloading"));
 	
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::NonInstanced;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
@@ -40,12 +40,12 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		Params.RawMagnitude = PlayRate;
 
 		// Add reloading tags on both server and client
-		GET_ASC->AddLooseGameplayTagsForDuration(TAG_CONTAINER("Status.State.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
+		GET_ASC->AddLooseGameplayTagForDuration(TAG("WeaponState.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
 		
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
 			if(CHARACTER->GetCurrentWeapon()->GetTP_EquipMontage())
-				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Reload.ThirdPerson"), ActivationInfo.GetActivationPredictionKey(), Params);
+				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Reload.NetMulticast"), ActivationInfo.GetActivationPredictionKey(), Params);
 
 			int32& Ammo = CHARACTER->GetCurrentWeapon()->Ammo;
 			int32& ReserveAmmo = CHARACTER->GetCurrentWeapon()->ReserveAmmo;
@@ -56,7 +56,7 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		}
 		if(ActorInfo->IsLocallyControlled())
 		{// Play first person reload animation locally
-			GET_ASC->ExecuteGameplayCueLocal(TAG("GameplayCue.Reload.FirstPerson"), Params);
+			GET_ASC->ExecuteGameplayCueLocal(TAG("GameplayCue.Reload.Local"), Params);
 		}
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 	}
@@ -65,8 +65,19 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 
 void UReloadWeaponAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
-	PRINTLINE;
+	Super::Client_PredictionFailed_Implementation(ActorInfo);
+	
 	if(UAnimInstance* AnimInstance = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
 		AnimInstance->Montage_Stop(0.f, ActorInfo.Inventory.Get()->GetCurrent() ? ActorInfo.Inventory.Get()->GetCurrent()->GetFP_ReloadMontage() : nullptr);
 }
+
+void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+	
+	if(bWasCancelled && !ActorInfo->IsNetAuthority())
+		if(UAnimInstance* AnimInstance = CHARACTER->GetFP_Mesh()->GetAnimInstance())
+			AnimInstance->Montage_Stop(0.f, INVENTORY->GetCurrent() ? INVENTORY->GetCurrent()->GetFP_ReloadMontage() : nullptr);
+}
+
 

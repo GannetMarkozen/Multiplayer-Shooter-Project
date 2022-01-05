@@ -8,7 +8,7 @@
 void UGASGameplayAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
-	K2_OnGiveAbility(*ActorInfo, Spec);
+	K2_OnGiveAbility((FGameplayAbilityActorInfoExtended&)*ActorInfo, Spec);
 }
 
 UCharacterMovementComponent* UGASGameplayAbility::GetCharacterMovement() const

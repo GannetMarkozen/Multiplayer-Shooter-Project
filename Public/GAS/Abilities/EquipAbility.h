@@ -20,6 +20,12 @@ protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void Client_PredictionSucceeded_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo) override;
 	virtual void Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo) override;
-	
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "GAS|Ability")
 	void Equip(class AWeapon* NewWeapon, class AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo);
+	void Equip_Implementation(class AWeapon* NewWeapon, class AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo);
+
+public:	
+	UFUNCTION(BlueprintCallable, Category = "GAS|Ability")
+	static void EquipWeapon(class UAbilitySystemComponent* ASC, int32 Index);
 };

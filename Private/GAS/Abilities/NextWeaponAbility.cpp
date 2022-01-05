@@ -5,7 +5,8 @@
 
 #include "AbilitySystemComponent.h"
 #include "Character/CharacterInventoryComponent.h"
-#include "GAS/Abilities/EquipWeaponAbility.h"
+#include "GAS/Abilities/EquipAbility.h"
+#include "GAS/GASAbilitySystemComponent.h"
 
 UNextWeaponAbility::UNextWeaponAbility()
 {
@@ -22,10 +23,9 @@ void UNextWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	const int32 CurrentIndex = CastChecked<UEquipWeaponAbility>(ActorInfo->AbilitySystemComponent.Get()->FindAbilitySpecFromClass(UEquipWeaponAbility::StaticClass())->Ability)->GetCurrentIndex();
 	const int32 NewIndex = IInventoryInterface::Execute_GetInventory(ActorInfo->AvatarActor.Get())->GetWeapons().IsValidIndex(CurrentIndex + 1) ? CurrentIndex + 1 : 0;
 	UEquipWeaponAbility::EquipWeaponEvent(ActorInfo->AbilitySystemComponent.Get(), NewIndex);*/
-
-	const UCharacterInventoryComponent* CharacterInventory = CastChecked<UCharacterInventoryComponent>(IInventoryInterface::Execute_GetInventory(ActorInfo->AvatarActor.Get()));
-	const int32 NewIndex = CharacterInventory->GetWeapons().IsValidIndex(CharacterInventory->GetCurrentIndex() + 1) ? CharacterInventory->GetCurrentIndex() + 1 : 0;
-	UEquipWeaponAbility::EquipWeaponEvent(ActorInfo->AbilitySystemComponent.Get(), NewIndex);
+	
+	const int32 NewIndex = INVENTORY->GetWeapons().IsValidIndex(INVENTORY->GetCurrentIndex() + 1) ? INVENTORY->GetCurrentIndex() + 1 : 0;
+	UEquipAbility::EquipWeapon(GET_ASC, NewIndex);
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }

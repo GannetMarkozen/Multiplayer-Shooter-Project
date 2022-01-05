@@ -4,17 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "GAS/GASGameplayAbility.h"
-#include "FireWeaponAbility.generated.h"
+#include "HitscanAbility.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class MULTIPLAYERSHOOTER_API UFireWeaponAbility : public UGASGameplayAbility
+class MULTIPLAYERSHOOTER_API UHitscanAbility : public UGASGameplayAbility
 {
 	GENERATED_BODY()
 public:
-	UFireWeaponAbility();
+	UHitscanAbility();
 protected:
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const override;

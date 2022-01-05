@@ -3,7 +3,7 @@
 
 #include "GAS/Abilities/Weapons/Rifle.h"
 #include "GAS/Abilities/JumpAbility.h"
-#include "GAS/Abilities/FireWeaponAbility.h"
+#include "GAS/Abilities/HitscanAbility.h"
 
 ARifle::ARifle()
 {

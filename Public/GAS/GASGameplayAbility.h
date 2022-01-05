@@ -80,10 +80,30 @@ public:
 	FORCEINLINE class UCharacterMovementComponent* GetCharacterMovement() const;
 	
 protected:
+	virtual FORCEINLINE void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override
+	{
+		Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+		if(ActorInfo)
+			ActivateAbilityExtended(Handle, (FGameplayAbilityActorInfoExtended&)*ActorInfo, ActivationInfo, TriggerEventData ? *TriggerEventData : FGameplayEventData());
+	}
+
+	virtual FORCEINLINE void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override
+	{
+		Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+		if(ActorInfo)
+			EndAbilityExtended(Handle, (FGameplayAbilityActorInfoExtended&)*ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+	}
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "GAS|Ability")
+	void ActivateAbilityExtended(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfoExtended& ActorInfo, const FGameplayAbilityActivationInfo& ActivationInfo, const FGameplayEventData& TriggerEventData);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "GAS|Ability")
+	void EndAbilityExtended(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfoExtended& ActorInfo, const FGameplayAbilityActivationInfo& ActivationInfo, bool bReplicateEndAbility = false, bool bWasCancelled = false);
+	
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 
 	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Give Ability"), Category = "GAS|Ability")
-	void K2_OnGiveAbility(const FGameplayAbilityActorInfo& ActorInfo, const FGameplayAbilitySpec& AbilitySpec);
+	void K2_OnGiveAbility(const FGameplayAbilityActorInfoExtended& ActorInfo, const FGameplayAbilitySpec& AbilitySpec);
 	
 	// Client-side failed ability prediction, Always call parent function
 	UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")

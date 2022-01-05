@@ -24,22 +24,28 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	FText Description;
-
-public:
+	
+public:	
 	UFUNCTION(BlueprintPure, Category = "Item")
 	const FORCEINLINE FGameplayTag& GetItemTag() const { return ItemTag; }
-	
-	UFUNCTION(BlueprintNativeEvent, Category = "Item")
-	void Interact();
-	virtual FORCEINLINE void Interact_Implementation() { UE_LOG(LogTemp, Warning, TEXT("No Interact implementation on %s"), *GetName()); }
+
+	// Interaction that has to do with UI. Not 3D space interaction. That is dealt with the
+	// Interact Interface on the item pickup class
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Item")
+	void Interact(class AShooterCharacter* Interactor);
+	virtual FORCEINLINE void Interact_Implementation(class AShooterCharacter* Interactor) { UE_LOG(LogTemp, Warning, TEXT("No Interact implementation on %s"), *GetName()); }
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Item")
+	void EndInteract(class AShooterCharacter* Interactor);
+	virtual FORCEINLINE void EndInteract_Implementation(class AShooterCharacter* Interactor) { UE_LOG(LogTemp, Warning, TEXT("No EndInteract implementation on %s"), *GetName()); }
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Item")
-	void Inspect();
-	virtual FORCEINLINE void Inspect_Implementation() { UE_LOG(LogTemp, Warning, TEXT("No Inspect implementation on %s"), *GetName()); }
+	void Inspect(class AShooterCharacter* Interactor);
+	virtual FORCEINLINE void Inspect_Implementation(class AShooterCharacter* Interactor) { UE_LOG(LogTemp, Warning, TEXT("No Inspect implementation on %s"), *GetName()); }
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Item")
-	void EndInspect();
-	virtual FORCEINLINE void EndInspect_Implementation() { UE_LOG(LogTemp, Warning, TEXT("No EndInspect implementation on %s"), *GetName()); }
+	void EndInspect(class AShooterCharacter* Interactor);
+	virtual FORCEINLINE void EndInspect_Implementation(class AShooterCharacter* Interactor) { UE_LOG(LogTemp, Warning, TEXT("No EndInspect implementation on %s"), *GetName()); }
 	
 	UFUNCTION(BlueprintPure, Category = "Item")
 	FORCEINLINE class UTexture2D* GetThumbnail() const { return Thumbnail; }

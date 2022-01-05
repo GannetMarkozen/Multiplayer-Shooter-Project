@@ -25,6 +25,23 @@ struct FMeshTableRow : public FTableRowBase
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FName ForegripName = "Foregrip";
 };
+
+UINTERFACE(MinimalAPI)
+class UWeaponSpecInterface : public UInterface
+{
+	GENERATED_BODY()
+};
+// Only exists on weapons with weapon capabilities
+class MULTIPLAYERSHOOTER_API IWeaponSpecInterface
+{
+	GENERATED_BODY()
+protected:
+	//UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon Spec Interface")
+	
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated, int32, Ammo);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponReserveAmmoUpdated, int32, ReserveAmmo);
 /**
  * 
  */
@@ -37,6 +54,7 @@ public:
 
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return BaseDamage; }
 
 	// First-person weapon mesh
@@ -71,6 +89,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TSubclassOf<class UGameplayEffect> DamageEffect;
 
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "WeaponState"), Category = "Configurations")
+	FGameplayTag DelayAmmoReplicationTag = TAG("WeaponState.DelayReplication.Ammo");
+
 	// The base damage that all damage calculations are based off of
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	int32 BaseDamage = 15;
@@ -90,6 +111,14 @@ protected:
 	// The cooldown during reloading
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	float ReloadDuration = 1.f;
+
+	// The duration of swapping weapons
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	float WeaponSwapDuration = 1.f;
+
+	// Number of shots per execution. Multiple for things like shotguns.
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	int32 NumShots = 1;
 
 	// The type of damage this weapon deals
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "Data.DamageType"), Category = "Configurations")
@@ -134,10 +163,16 @@ public:
 	FORCEINLINE float GetReloadDuration() const { return ReloadDuration; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE float GetWeaponSwapDuration() const { return WeaponSwapDuration; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
 	const FORCEINLINE TArray<TSubclassOf<class UGASGameplayAbility>>& GetWeaponAbilities() const { return WeaponAbilities; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE float GetBaseDamage() const { return BaseDamage; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE int32 GetNumShots() const { return NumShots; }
 
 	// Appends all damage calculation tags for use in damage effect calculation
 	UFUNCTION(BlueprintPure, Category = "Getters")
@@ -179,7 +214,7 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void OnFire();
-	virtual FORCEINLINE void OnFire_Implementation() { Ammo--; }
+	virtual FORCEINLINE void OnFire_Implementation();
 
 	UPROPERTY(EditDefaultsOnly)
 	bool bUseAmmo = false;
@@ -189,12 +224,38 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_ReserveAmmo, Meta = (EditCondition = "bUseAmmo"))
 	int32 ReserveAmmo = 0;
+
+	// Update ammo client-side with the amount server side when mis-predicting
+	// ammo consumption. Only call on server, obviously
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FORCEINLINE void UpdateClientAmmo()
+	{
+		if(HasAuthority()) Client_UpdateAmmo(Ammo);
+	}
 	
 protected:
+	// Called whenever the amount of ammo changes
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Delegates")
+	FWeaponAmmoUpdated AmmoDelegate;
+
+	// Called whenever the amount of reserve ammo changes
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Delegates")
+	FWeaponReserveAmmoUpdated ReserveAmmoDelegate;
+	
+	
 	UFUNCTION()
-	virtual FORCEINLINE void OnRep_Ammo(const int32& OldAmmo) {}
+	virtual FORCEINLINE void OnRep_Ammo(const int32& OldAmmo) { AmmoDelegate.Broadcast(Ammo); }
 
 	UFUNCTION()
-	virtual FORCEINLINE void OnRep_ReserveAmmo(const int32& OldReserveAmmo) {}
+	virtual FORCEINLINE void OnRep_ReserveAmmo(const int32& OldReserveAmmo) { ReserveAmmoDelegate.Broadcast(ReserveAmmo); }
+
+	UFUNCTION(Client, Reliable)
+	void Client_UpdateAmmo(const float Value);
+	FORCEINLINE void Client_UpdateAmmo_Implementation(const float Value)
+	{
+		const float OldValue = Ammo;
+		Ammo = Value;
+		OnRep_Ammo(OldValue);
+	}
 };  
  

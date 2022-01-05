@@ -7,6 +7,42 @@
 
 #include "MultiplayerShooter.generated.h"
 
+// Gets the size of multiple types
+template<typename ... Types>
+struct TSizeOf;
+// Gets the size of multiple types
+template<typename TFirst>
+struct TSizeOf<TFirst>
+{
+	static constexpr int32 Size = sizeof(TFirst);
+};
+// Gets the size of multiple types
+template<typename TFirst, typename... TRemaining>
+struct TSizeOf<TFirst, TRemaining...>
+{
+	static constexpr int32 Size = sizeof(TFirst) + TSizeOf<TRemaining...>::Size;
+};
+
+
+template<typename ... Types>
+struct TMemInit;
+
+template<typename TFirst>
+struct TMemInit<TFirst>
+{
+	static constexpr int32 Size = TSizeOf<TFirst>::Size;
+	char Mem[Size];
+	FORCEINLINE char* Get() { return Mem; }
+};
+
+template<typename TFirst, typename... TRemaining>
+struct TMemInit<TFirst, TRemaining...>
+{
+	static constexpr int32 Size = TSizeOf<TFirst, TRemaining...>::Size;
+	char Mem[Size];
+	FORCEINLINE char* Get() { return Mem; }
+};
+
 // Defines the input bound in a gameplay ability
 UENUM(BlueprintType)
 enum class EAbilityInput : uint8
@@ -70,7 +106,7 @@ public:
 	static FORCEINLINE FString AuthToString(const bool bAuth) { return bAuth ? "Server" : "Client"; }
 };
 
-#define BOOLTOSTRING(bCheck) UMultiplayerShooterFunctionLibrary::BoolToString(bCheck)
+#define BOOLTOSTRING(bCheck) FString(bCheck ? "True" : "False")
 
 #define AUTHTOSTRING(bAuth) FString(bAuth ? "Server" : "Client")
 
