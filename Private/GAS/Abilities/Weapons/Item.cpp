@@ -2,7 +2,5 @@
 
 AItem::AItem()
 {
-	PrimaryActorTick.bCanEverTick = false;
 	
-	bReplicates = true;
 }

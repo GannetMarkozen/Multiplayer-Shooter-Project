@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "GameFramework/Actor.h"
+#include "MultiplayerShooter/MultiplayerShooter.h"
 #include "LineTraceObject.generated.h"
 
 /**
@@ -28,5 +29,5 @@ protected:
 	FVector2D Spread = {0.f, 0.f };
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
-	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Visibility;
+	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Projectile;
 };

@@ -16,9 +16,10 @@
 #include "Net/UnrealNetwork.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
 
+
 AShooterCharacter::AShooterCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	GetMesh()->SetOwnerNoSee(true);
 
@@ -53,7 +54,27 @@ void AShooterCharacter::BeginPlay()
 void AShooterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	/*
+	if(GetCharacterMovement()->Velocity.Size() < StationaryThreshold)
+	{// If stationary
+		if(!bIsLerpRotating)
+		{
+			const float AddYaw = GetCharacterMovement()->GetLastUpdateRotation().Yaw;
+			if(AddYaw != 0.f)
+			{
+				GetMesh()->AddLocalRotation(FRotator(0.f, -AddYaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+				if(GetMesh()->GetRelativeRotation().Yaw + 90.f >= StationaryYawThreshold)
+					bIsLerpRotating = true;
+			}
+		}
+		else
+		{
+			const float AddYaw = FMath::FInterpConstantTo(GetMesh()->GetRelativeRotation().Yaw, -90.f, DeltaTime, InterpYawSpeed);
+			GetMesh()->AddLocalRotation(FRotator(0.f, AddYaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+			if(FMath::IsNearlyZero(AddYaw)) bIsLerpRotating = false;
+		}
+	}
+	else bIsLerpRotating = false;*/
 }
 
 void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -141,23 +162,7 @@ void AShooterCharacter::InitializeAttributes()
 			}
 		}
 	}
-			
 }
-/*
-void AShooterCharacter::OnRep_ItemMesh()
-{
-	GetFP_ItemMesh()->SetSkeletalMesh(ItemMesh);
-	GetTP_ItemMesh()->SetSkeletalMesh(ItemMesh);
-	if(ItemMesh && ItemMeshDataTable)
-	{
-		if(const FMeshTableRow* MeshTableRow = ItemMeshDataTable->FindRow<FMeshTableRow>(ItemMesh->GetFName(), "MeshTableRow"))
-		{
-			const FTransform RelativeTransform(MeshTableRow->RelativeRotation, MeshTableRow->RelativeLocation);
-			GetFP_ItemMesh()->SetRelativeTransform(RelativeTransform);
-			GetTP_ItemMesh()->SetRelativeTransform(RelativeTransform);
-		}
-	}
-}*/
 
 void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
 {
@@ -252,7 +257,7 @@ void AShooterCharacter::Ragdoll_Implementation(const float Magnitude, const FGam
 	if(Spec.IsValid() && Spec.Data.Get()->GetEffectContext().IsValid())
 	{
 		FGameplayCueParameters Params;
-		Params.RawMagnitude = Magnitude * 1.25f; // Multiply magnitude for funny ragdolls
+		Params.RawMagnitude = Magnitude;
 		Params.EffectContext = FGameplayEffectContextHandle(new FGameplayEffectContextExtended(this, GAS::FilterTargetDataByActor(this, Extend(Spec.Data.Get()->GetEffectContext().Get())->GetTargetData())));
 		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(this, TAG("GameplayCue.Knockback"), EGameplayCueEvent::Executed, Params);
 	}

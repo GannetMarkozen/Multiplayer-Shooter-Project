@@ -12,11 +12,18 @@
 
 AWeapon::AWeapon()
 {
+	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
+
+	DefaultScene = CreateDefaultSubobject<USceneComponent>(TEXT("Default Scene"));
+	RootComponent = DefaultScene;
+	
 	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
 	FP_Mesh->SetOnlyOwnerSee(true);
 	FP_Mesh->SetSimulatePhysics(false);
 	FP_Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FP_Mesh->SetCollisionObjectType(ECC_Pawn);
+	FP_Mesh->SetupAttachment(RootComponent);
 
 	TP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Third Person Mesh"));
 	TP_Mesh->SetOwnerNoSee(true);
@@ -26,6 +33,7 @@ AWeapon::AWeapon()
 	TP_Mesh->CanCharacterStepUpOn = ECB_No;
 	TP_Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	TP_Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Overlap);
+	TP_Mesh->SetupAttachment(RootComponent);
 	
 	DamageEffect = UDamageEffect::StaticClass();
 }
@@ -35,7 +43,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, Ammo, COND_OwnerOnly, REPNOTIFY_OnChanged);
-	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, Ammo, COND_OwnerOnly, REPNOTIFY_OnChanged);
+	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, ReserveAmmo, COND_OwnerOnly, REPNOTIFY_OnChanged);
 	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, CurrentOwner, COND_None, REPNOTIFY_OnChanged);
 }
 
@@ -45,6 +53,12 @@ void AWeapon::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AWeapon, Ammo, CurrentASC && !CurrentASC->HasMatchingGameplayTag(DelayAmmoReplicationTag));
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AWeapon, ReserveAmmo, CurrentASC && !CurrentASC->HasMatchingGameplayTag(DelayAmmoReplicationTag));
+}
+
+void AWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	
 }
 
 
@@ -92,9 +106,10 @@ void AWeapon::OnRep_CurrentOwner_Implementation(const AShooterCharacter* OldOwne
 
 void AWeapon::OnFire_Implementation()
 {
-	Ammo--;
+	const int32 OldAmmo = Ammo--;
+	OnRep_Ammo(OldAmmo);/*
 	if(CurrentASC && HasAuthority() && !CurrentOwner->IsLocallyControlled())
-		CurrentASC->AddLooseGameplayTagForDuration(DelayAmmoReplicationTag, RateOfFire + 0.1f);
+		CurrentASC->AddLooseGameplayTagForDuration(DelayAmmoReplicationTag, RateOfFire + 0.1f);*/
 }
 
 

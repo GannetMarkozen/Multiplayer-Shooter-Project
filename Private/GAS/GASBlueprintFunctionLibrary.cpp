@@ -3,7 +3,7 @@
 #include "Character/ShooterCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
-int32 UGASBlueprintFunctionLibrary::CalculateDamage(AActor* Target, AActor* Instigator, const FGameplayEffectSpecHandle& Spec, const bool bDisplayDamage)
+int32 UGASBlueprintFunctionLibrary::CalculateDamage(AActor* Target, AActor* Instigator, const FGameplayEffectSpecHandle& Spec, const EDisplayDamage DisplayDamage)
 {
 	if(!Spec.IsValid() || !Target || !Instigator) return 0;
 	if(const AShooterCharacter* InstigatorCharacter = Cast<AShooterCharacter>(Instigator))
@@ -11,14 +11,17 @@ int32 UGASBlueprintFunctionLibrary::CalculateDamage(AActor* Target, AActor* Inst
 		if(const AWeapon* Weapon = InstigatorCharacter->GetCharacterInventory()->GetCurrent())
 		{
 			const int32 Damage = IDamageCalculationInterface::Execute_CalculateDamage(Weapon, Target, Spec);
-			if(bDisplayDamage)
+			if(DisplayDamage != EDisplayDamage::None)
 			{
 				((FGameplayEffectContextExtended*)Spec.Data.Get()->GetEffectContext().Get())->SetTarget(Target);
 				FGameplayCueParameters Params;
 				Params.Instigator = Instigator;
 				Params.EffectContext = Spec.Data.Get()->GetEffectContext();
 				Params.RawMagnitude = -Damage;
-				InstigatorCharacter->GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Damage"), FPredictionKey(), Params);
+				if(DisplayDamage == EDisplayDamage::NetMulticast)
+					InstigatorCharacter->GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Damage"), FPredictionKey(), Params);
+				else if(DisplayDamage == EDisplayDamage::LocalOnly)
+					InstigatorCharacter->GetASC()->ExecuteGameplayCueLocal(TAG("GameplayCue.Damage"), Params);
 			}
 			return Damage;
 		}

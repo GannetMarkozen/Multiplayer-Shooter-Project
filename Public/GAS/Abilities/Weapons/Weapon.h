@@ -26,22 +26,10 @@ struct FMeshTableRow : public FTableRowBase
 	FName ForegripName = "Foregrip";
 };
 
-UINTERFACE(MinimalAPI)
-class UWeaponSpecInterface : public UInterface
-{
-	GENERATED_BODY()
-};
-// Only exists on weapons with weapon capabilities
-class MULTIPLAYERSHOOTER_API IWeaponSpecInterface
-{
-	GENERATED_BODY()
-protected:
-	//UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon Spec Interface")
-	
-};
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated, int32, Ammo);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponReserveAmmoUpdated, int32, ReserveAmmo);
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated_Static, int32);
 /**
  * 
  */
@@ -55,7 +43,12 @@ public:
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return BaseDamage; }
+
+	// Idk
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	TObjectPtr<class USceneComponent> DefaultScene;
 
 	// First-person weapon mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
@@ -232,8 +225,7 @@ public:
 	{
 		if(HasAuthority()) Client_UpdateAmmo(Ammo);
 	}
-	
-protected:
+
 	// Called whenever the amount of ammo changes
 	UPROPERTY(BlueprintAssignable, Category = "Weapon|Delegates")
 	FWeaponAmmoUpdated AmmoDelegate;
@@ -241,13 +233,24 @@ protected:
 	// Called whenever the amount of reserve ammo changes
 	UPROPERTY(BlueprintAssignable, Category = "Weapon|Delegates")
 	FWeaponReserveAmmoUpdated ReserveAmmoDelegate;
+
+	FWeaponAmmoUpdated_Static AmmoDelegate_Static;
+	FWeaponAmmoUpdated_Static ReserveAmmoDelegate_Static;
 	
-	
+protected:
 	UFUNCTION()
-	virtual FORCEINLINE void OnRep_Ammo(const int32& OldAmmo) { AmmoDelegate.Broadcast(Ammo); }
+	virtual FORCEINLINE void OnRep_Ammo(const int32& OldAmmo)
+	{
+		AmmoDelegate.Broadcast(Ammo);
+		AmmoDelegate_Static.Broadcast(Ammo);
+	}
 
 	UFUNCTION()
-	virtual FORCEINLINE void OnRep_ReserveAmmo(const int32& OldReserveAmmo) { ReserveAmmoDelegate.Broadcast(ReserveAmmo); }
+	virtual FORCEINLINE void OnRep_ReserveAmmo(const int32& OldReserveAmmo)
+	{
+		ReserveAmmoDelegate.Broadcast(ReserveAmmo);
+		ReserveAmmoDelegate_Static.Broadcast(ReserveAmmo);
+	}
 
 	UFUNCTION(Client, Reliable)
 	void Client_UpdateAmmo(const float Value);

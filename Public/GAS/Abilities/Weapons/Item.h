@@ -55,4 +55,5 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Item")
 	const FORCEINLINE FText& GetDescription() const { return Description; }
+	
 };

@@ -16,10 +16,30 @@ UReloadWeaponAbility::UReloadWeaponAbility()
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
 	ActivationBlockedTags.AddTag(TAG("WeaponState.Reloading"));
+	ActivationBlockedTags.AddTag(TAG("Status.State.Interacting"));
 	
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::NonInstanced;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 }
+
+void UReloadWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnGiveAbility(ActorInfo, Spec);
+
+	if(bReloadOnEnd && ActorInfo->IsNetAuthority())
+		GET_ASC->GiveAbility(FGameplayAbilitySpec(UReloadWeaponActivationAbility::StaticClass(), 1.f, INDEX_NONE, this));
+}
+
+void UReloadWeaponAbility::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnRemoveAbility(ActorInfo, Spec);
+
+	if(bReloadOnEnd && ActorInfo->IsNetAuthority())
+		if(const FGameplayAbilitySpec* SpecHandle = GET_ASC->FindAbilitySpecFromClass(UReloadWeaponActivationAbility::StaticClass()))
+			GET_ASC->SetRemoveAbilityOnEnd(SpecHandle->Handle);
+}
+
+
 
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
@@ -79,5 +99,52 @@ void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 		if(UAnimInstance* AnimInstance = CHARACTER->GetFP_Mesh()->GetAnimInstance())
 			AnimInstance->Montage_Stop(0.f, INVENTORY->GetCurrent() ? INVENTORY->GetCurrent()->GetFP_ReloadMontage() : nullptr);
 }
+
+
+/*
+ *
+ *
+ *
+ *
+ *
+ */
+
+UReloadWeaponActivationAbility::UReloadWeaponActivationAbility()
+{
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+}
+
+void UReloadWeaponActivationAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnGiveAbility(ActorInfo, Spec);
+
+	if(ActorInfo->IsNetAuthority() && CHARACTER->GetCurrentWeapon() /* Sanity check */)
+		CHARACTER->GetCurrentWeapon()->AmmoDelegate.AddDynamic(this, &UReloadWeaponActivationAbility::AmmoChanged);
+}
+
+void UReloadWeaponActivationAbility::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnRemoveAbility(ActorInfo, Spec);
+
+	if(ActorInfo->IsNetAuthority() && CHARACTER->GetCurrentWeapon())
+		CHARACTER->GetCurrentWeapon()->AmmoDelegate.RemoveAll(this);
+}
+
+void UReloadWeaponActivationAbility::AmmoChanged(int32 Ammo)
+{
+	if(Ammo <= 0.f && GetCharacter()->GetCurrentWeapon() && GetCharacter()->GetCurrentWeapon()->ReserveAmmo > 0)
+		GetASC()->TryActivateAbilityByClass(UReloadWeaponAbility::StaticClass());
+}
+
+
+
+
+
+
+
+
+
+
 
 

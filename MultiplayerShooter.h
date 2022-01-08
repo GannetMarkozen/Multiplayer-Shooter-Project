@@ -43,6 +43,12 @@ struct TMemInit<TFirst, TRemaining...>
 	FORCEINLINE char* Get() { return Mem; }
 };
 
+// ECollisionChannel::ECC_EngineTraceChannel1
+#define ECC_Projectile ECollisionChannel::ECC_GameTraceChannel1
+
+// ECollisionChannel::ECC_EngineTraceChannel2
+#define ECC_ItemDrop ECollisionChannel::ECC_GameTraceChannel2
+
 // Defines the input bound in a gameplay ability
 UENUM(BlueprintType)
 enum class EAbilityInput : uint8
@@ -56,7 +62,7 @@ enum class EAbilityInput : uint8
 	SecondaryFire,
 	Interact,
 	Reload,
-	SwapToLastItem,
+	Drop,
 	MWheelUp,
 	MWheelDown,
 	MWheelPressed,

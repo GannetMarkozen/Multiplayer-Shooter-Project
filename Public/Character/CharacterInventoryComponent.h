@@ -30,17 +30,20 @@ protected:
 	int32 DefaultItemIndex = 0;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Inventory")
-	int32 CurrentIndex = INDEX_NONE;
+	int32 CurrentIndex = 0;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Inventory")
 	int32 LastIndex = 0;
 
 	FTimerHandle EquipDelayTimerHandle;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
-	bool bHasItemEquipped = false;
+	UPROPERTY(EditAnywhere, Category = "Inventory")
+	int32 MaxWeapons = 5;
 
 public:
+	virtual int32 AddItems(const TArray<AWeapon*>& NewWeapons) override;
+	virtual void RemoveItem(const int32 Index) override;
+	
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	FORCEINLINE int32 GetCurrentIndex() const { return CurrentIndex; }
 

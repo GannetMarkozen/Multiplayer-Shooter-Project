@@ -13,6 +13,7 @@
 #include "ShooterCharacter.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FChangedWeapons, class AWeapon*, NewWeapon, const class AWeapon*, OldWeapon);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInspectTextUpdate, const FText&, Text);
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterCharacter : public ACharacter, public IAbilitySystemInterface, public IInventoryInterface, public IDamageInterface
@@ -177,13 +178,31 @@ protected:
 	// The current weapon equipped
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_Weapon, Category = "Character")
 	class AWeapon* CurrentWeapon;
-
-	// Called whenever swapping weapons
-	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
-	FChangedWeapons ChangedWeaponsDelegate;
 	
 	// Called when swapped weapon
 	UFUNCTION(BlueprintNativeEvent, Category = "Character")
 	void OnRep_Weapon(const class AWeapon* LastWeapon);
 	void OnRep_Weapon_Implementation(const class AWeapon* LastWeapon);
+	
+public:
+	// Called whenever swapping weapons
+	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
+	FChangedWeapons ChangedWeaponsDelegate;
+
+	// Call to update the inspect text on the HUD
+	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
+	FInspectTextUpdate HUDInspectTextDelegate;
+
+protected:
+	// Anim configurations
+	UPROPERTY(EditAnywhere, Category = "Anim")
+	float StationaryYawThreshold = 90.f;
+
+	UPROPERTY(EditAnywhere, Category = "Anim")
+	float StationaryThreshold = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Anim")
+	float InterpYawSpeed = 0.5f;
+
+	bool bIsLerpRotating = false;
 };

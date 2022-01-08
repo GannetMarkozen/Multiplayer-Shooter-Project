@@ -11,6 +11,12 @@
 
 #define GAS UGASBlueprintFunctionLibrary
 
+UENUM(BlueprintType)
+enum class EDisplayDamage : uint8
+{
+	None, LocalOnly, NetMulticast
+};
+
 UCLASS()
 class MULTIPLAYERSHOOTER_API UGASBlueprintFunctionLibrary : public UBlueprintFunctionLibrary
 {
@@ -279,9 +285,18 @@ public:
 		return false;
 	}
 
+	// Tests whether component is part of collision channel that should have force applied and that it is simulating physics
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	static FORCEINLINE bool ShouldProjectileApplyForce(const class UPrimitiveComponent* Component, const FName& BoneName = NAME_None)
+	{
+		if(!Component) return false;
+		const ECollisionChannel CC = Component->GetCollisionObjectType();
+		return CC != ECC_WorldDynamic && CC != ECC_WorldStatic && CC != ECC_ItemDrop && Component->IsSimulatingPhysics(BoneName);
+	}
+
 	// Calculates the damage using the instigator's equipped weapon or base damage set by caller magnitude. Display damage only works if instigator is an AShooterCharacter
 	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Target"), Category = "GAS")
-	static int32 CalculateDamage(class AActor* Target, class AActor* Instigator, const FGameplayEffectSpecHandle& Spec, const bool bDisplayDamage = false);
+	static int32 CalculateDamage(class AActor* Target, class AActor* Instigator, const FGameplayEffectSpecHandle& Spec, const EDisplayDamage DisplayDamage = EDisplayDamage::None);
 
 	// Only works if calculating target data from originating from FGameplayAbilityTargetData_SingleTargetHit or any other that would return a hit result
 	UFUNCTION(BlueprintCallable, Category = "GAS")

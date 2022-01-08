@@ -11,26 +11,39 @@
 
 UInventoryComponent::UInventoryComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 
 	SetIsReplicated(true);
+}
+
+// friend func of AWeapon
+void CallOnObtained(AWeapon* Weapon, UInventoryComponent* Inventory)
+{
+	if(Weapon) Weapon->OnObtained(Inventory);
 }
 
 void UInventoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if(GetOwner()->HasAuthority())
-	{
+	if(GetOwner()->HasAuthority() && !DefaultWeapons.IsEmpty())
+	{// Spawn default weapons and initialize
+		FActorSpawnParameters Params;
+		Params.Owner = GetOwner();
 		TArray<AWeapon*> NewWeapons;
 		for(const TSubclassOf<AWeapon>& Class : DefaultWeapons)
 		{
 			if(!Class) continue;
-			FActorSpawnParameters Params;
-			Params.Owner = GetOwner();
 			NewWeapons.Add(GetWorld()->SpawnActor<AWeapon>(Class, Params));
 		}
-		AddItems(NewWeapons);
+		
+		for(AWeapon* NewWeapon : NewWeapons)
+		{// Add weapons. Don't call AddWeapons cuz it crashes for some reason on BeginPlay
+			NewWeapon->SetOwner(GetOwner());
+			CallOnObtained(NewWeapon, this);
+			Weapons.Add(NewWeapon);
+		}
+		UpdateInventoryDelegate.Broadcast();
 	}
 }
 
@@ -41,22 +54,30 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME_CONDITION_NOTIFY(UInventoryComponent, Weapons, COND_OwnerOnly, REPNOTIFY_OnChanged);
 }
 
-// friend func of AWeapon
-void CallOnObtained(AWeapon* Weapon, UInventoryComponent* Inventory)
+int32 UInventoryComponent::AddItems(const TArray<AWeapon*>& NewWeapons)
 {
-	if(Weapon) Weapon->OnObtained(Inventory);
-}
-
-void UInventoryComponent::AddItems(const TArray<AWeapon*>& NewWeapons)
-{
-	if(NewWeapons.Num() == 0) return;
+	if(NewWeapons.Num() == 0) return 0;
 	
+	int32 Num = 0;
 	for(AWeapon* NewWeapon : NewWeapons)
 	{
+		if(!CanAddItem(NewWeapon)) continue;
 		NewWeapon->SetOwner(GetOwner());
 		CallOnObtained(NewWeapon, this);
+		Weapons.Add(NewWeapon);
+		Num++;
 	}
+	
+	UpdateInventoryDelegate.Broadcast();
 
-	Weapons.Append(NewWeapons);
+	return Num;
+}
+
+void UInventoryComponent::RemoveItem(const int32 Index)
+{
+	if(Weapons.IsValidIndex(Index))
+		Weapons.RemoveAt(Index);
+
 	UpdateInventoryDelegate.Broadcast();
 }
+

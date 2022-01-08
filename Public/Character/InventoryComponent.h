@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GAS/Abilities/Weapons/Weapon.h"
-#include "GAS/Abilities/Weapons/Item.h"
+#include "GAS/Abilities/Weapons/Weapon.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
 #include "InventoryComponent.generated.h"
 
@@ -49,16 +49,27 @@ protected:
 
 	UFUNCTION()
 	virtual FORCEINLINE void OnRep_Weapons(const TArray<class AWeapon*>& OldWeapons) { BP_OnRep_Weapons(OldWeapons); }
+
+	// Whether or not we can add this weapon. Should take into account filters and max size of inventory
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Items")
+	bool CanAddItem(const class AWeapon* Weapon);
+	virtual FORCEINLINE bool CanAddItem_Implementation(const class AWeapon* Weapon) { return true; }
 	
 public:
 	UPROPERTY(BlueprintAssignable, Category = "Items|Delegates")
 	FUpdateInventory UpdateInventoryDelegate;
-	
-	UFUNCTION(BlueprintCallable, Category = "Items")
-	virtual void AddItems(const TArray<class AWeapon*>& NewWeapons);
 
+	// returns num of successfully added items
 	UFUNCTION(BlueprintCallable, Category = "Items")
-	FORCEINLINE void AddItem(class AWeapon* NewWeapon) { AddItems({NewWeapon}); }
+	virtual int32 AddItems(const TArray<class AWeapon*>& NewWeapons);
+
+	// removes item at index and calls update inventory delegate
+	UFUNCTION(BlueprintCallable, Category = "Items")
+	virtual void RemoveItem(const int32 Index);
+
+	// returns if item was successfully added
+	UFUNCTION(BlueprintCallable, Category = "Items")
+	FORCEINLINE bool AddItem(class AWeapon* NewWeapon) { return AddItems({NewWeapon}) > 0; }
 
 	UFUNCTION(BlueprintPure, Category = "Items")
 	const FORCEINLINE TArray<class AWeapon*>& GetWeapons() const { return Weapons; }

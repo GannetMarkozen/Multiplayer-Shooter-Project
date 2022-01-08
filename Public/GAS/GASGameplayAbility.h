@@ -29,6 +29,8 @@ class MULTIPLAYERSHOOTER_API UGASGameplayAbility : public UGameplayAbility
 {
 	GENERATED_BODY()
 public:
+	UGASGameplayAbility();
+	
 	UFUNCTION(BlueprintCallable, Category = "GAS|Ability")
 	FORCEINLINE void ExternalEndAbility() { EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false); }
 	
@@ -101,9 +103,13 @@ protected:
 	void EndAbilityExtended(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfoExtended& ActorInfo, const FGameplayAbilityActivationInfo& ActivationInfo, bool bReplicateEndAbility = false, bool bWasCancelled = false);
 	
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
+	virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 
 	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Give Ability"), Category = "GAS|Ability")
 	void K2_OnGiveAbility(const FGameplayAbilityActorInfoExtended& ActorInfo, const FGameplayAbilitySpec& AbilitySpec);
+
+	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Remove Ability"), Category = "GAS|Ability")
+	void K2_OnRemoveAbility(const FGameplayAbilityActorInfoExtended& ActorInfo, const FGameplayAbilitySpec& AbilitySpec);
 	
 	// Client-side failed ability prediction, Always call parent function
 	UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")
@@ -129,12 +135,43 @@ protected:
 		OnSuccessfulPredictionWithEventData.Broadcast(EventData, ActorInfo);
 	}
 
-	constexpr static int AbilityIdentifier = 1;
-
 private:
 	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Get Current Actor Info Extended", AllowPrivateAccess = "true"), Category = "ActorInfo")
 	const FORCEINLINE FGameplayAbilityActorInfoExtended& BP_GetCurrentActorInfoExtended() const
 	{
 		return *GetActorInfoExtended();
+	}
+protected:
+	// Abilities added when this ability is given and removed when this ability is removes
+	UPROPERTY(EditDefaultsOnly, Category = "GAS|Ability")
+	TArray<TSubclassOf<class UGASGameplayAbility>> OwnedAbilities;
+	
+	// Cooldown overrides
+	/*
+	virtual const FGameplayTagContainer* GetCooldownTags() const override;
+	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
+
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
+	FScalableFloat CooldownDuration;
+
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
+	FGameplayTagContainer CooldownTags;
+
+	// Temp only
+	UPROPERTY(Transient)
+	FGameplayTagContainer TempCooldownTags;*/
+};
+
+UCLASS()
+class MULTIPLAYERSHOOTER_API UCooldownEffect : public UGameplayEffect
+{
+	GENERATED_BODY()
+public:
+	UCooldownEffect()
+	{
+		DurationPolicy = EGameplayEffectDurationType::HasDuration;
+		FSetByCallerFloat SetByCaller;
+		SetByCaller.DataTag = TAG("Data.Cooldown");
+		DurationMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	}
 };
