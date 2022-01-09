@@ -33,6 +33,8 @@ AWeapon::AWeapon()
 	TP_Mesh->CanCharacterStepUpOn = ECB_No;
 	TP_Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	TP_Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Overlap);
+	TP_Mesh->SetCollisionResponseToChannel(ECC_ItemDrop, ECR_Ignore);
+	TP_Mesh->SetCollisionResponseToChannel(ECC_Projectile, ECR_Ignore);
 	TP_Mesh->SetupAttachment(RootComponent);
 	
 	DamageEffect = UDamageEffect::StaticClass();
@@ -106,10 +108,9 @@ void AWeapon::OnRep_CurrentOwner_Implementation(const AShooterCharacter* OldOwne
 
 void AWeapon::OnFire_Implementation()
 {
-	const int32 OldAmmo = Ammo--;
-	OnRep_Ammo(OldAmmo);/*
-	if(CurrentASC && HasAuthority() && !CurrentOwner->IsLocallyControlled())
-		CurrentASC->AddLooseGameplayTagForDuration(DelayAmmoReplicationTag, RateOfFire + 0.1f);*/
+	SetAmmo(Ammo - 1);
+	//if(CurrentOwner->IsLocallyControlled())
+	//CurrentASC->AddLooseGameplayTagForDurationSingle(TAG("WeaponState.Firing"), RateOfFire);
 }
 
 

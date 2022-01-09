@@ -29,9 +29,25 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class UGameplayEffect> DamageEffectClass;
 
-	// Number of shots per execution. More than one for things like shotguns
-	UPROPERTY(EditDefaultsOnly)
-	int32 NumShots = 1;
+	// The speed at which to play the firing anim
+	UPROPERTY(EditAnywhere, Category = "Configurations")
+	float PlayRate = 1.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	FGameplayTag FiringStateTag;
+
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue"), Category = "Configurations")
+	FGameplayTag LocalFiringCue;
+
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue"), Category = "Configurations")
+	FGameplayTag NetMulticastFiringCue;
+
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue"), Category = "Configurations")
+	FGameplayTag NetMulticastKnockbackCue;
+
+	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue.Impact"), Category = "Configurations")
+	FGameplayTag NetMulticastImpactCue;
+	
 
 	// Called whenever doing line trace
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "GAS")

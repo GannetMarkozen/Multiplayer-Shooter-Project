@@ -198,8 +198,38 @@ protected:
 	UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
 	void OnRep_CurrentOwner(const class AShooterCharacter* OldOwner);
 	virtual void OnRep_CurrentOwner_Implementation(const class AShooterCharacter* OldOwner);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_Ammo, Meta = (EditCondition = "bUseAmmo"))
+	int32 Ammo = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_ReserveAmmo, Meta = (EditCondition = "bUseAmmo"))
+	int32 ReserveAmmo = 0;
 	
 public:
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	FORCEINLINE int32 GetAmmo() const { return Ammo; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FORCEINLINE void SetAmmo(const int32 NewAmmo)
+	{
+		if(NewAmmo == Ammo) return;
+		const int32 OldAmmo = Ammo;
+		Ammo = NewAmmo;
+		OnRep_Ammo(OldAmmo);
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	FORCEINLINE int32 GetReserveAmmo() const { return ReserveAmmo; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FORCEINLINE void SetReserveAmmo(const int32 NewReserveAmmo)
+	{
+		if(NewReserveAmmo == ReserveAmmo) return;
+		const int32 OldReserveAmmo = ReserveAmmo;
+		ReserveAmmo = NewReserveAmmo;
+		OnRep_ReserveAmmo(OldReserveAmmo);
+	}
+	
 	// Should be overriden
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	bool CanFire() const;
@@ -211,12 +241,6 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	bool bUseAmmo = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_Ammo, Meta = (EditCondition = "bUseAmmo"))
-	int32 Ammo = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_ReserveAmmo, Meta = (EditCondition = "bUseAmmo"))
-	int32 ReserveAmmo = 0;
 
 	// Update ammo client-side with the amount server side when mis-predicting
 	// ammo consumption. Only call on server, obviously

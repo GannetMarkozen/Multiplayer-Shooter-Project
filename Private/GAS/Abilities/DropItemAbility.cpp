@@ -37,7 +37,7 @@ void UDropItemAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 	}
 	
 	const FVector& ForwardVector = CHARACTER->GetViewRotation().Vector();
-	const FVector& Location = CHARACTER->GetCamera()->GetComponentLocation() + ForwardVector * 50.f + FVector(0.f, 0.f, -30.f);
+	const FVector& Location = CHARACTER->GetCamera()->GetComponentLocation() + ForwardVector * DropSpawnOffset;
 	const FVector& Impulse = ForwardVector * DropVelocity;
 	AWeaponPickup::SpawnWeaponPickup(INVENTORY->GetCurrent(), Location, Impulse);
 	INVENTORY->RemoveItem(INVENTORY->GetCurrentIndex());

@@ -76,7 +76,7 @@ void AItemPickupBase::SphereHit(UPrimitiveComponent* HitComponent, AActor* Other
 {
 	if(OtherComp && OtherComp->GetCollisionObjectType() == ECC_WorldStatic && NormalImpulse.Z >= 0.85f)
 	{
-		OverlapSphere->SetWorldRotation(FRotator());
+		OverlapSphere->SetWorldRotation(FRotator(0.f, GetActorRotation().Yaw, 0.f));
 		OverlapSphere->SetSimulatePhysics(false);
 		OverlapSphere->OnComponentHit.RemoveAll(this);
 	}

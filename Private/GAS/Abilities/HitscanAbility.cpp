@@ -15,6 +15,12 @@ UHitscanAbility::UHitscanAbility()
 {
 	LineTraceObject = CreateDefaultSubobject<ULineTraceObject>(TEXT("LineTraceObject"));
 	DamageEffectClass = UDamageEffect::StaticClass();
+
+	FiringStateTag = TAG("WeaponState.Firing");
+	LocalFiringCue = TAG("GameplayCue.FireWeapon.Local");
+	NetMulticastFiringCue = TAG("GameplayCue.FireWeapon.NetMulticast");
+	NetMulticastKnockbackCue = TAG("GameplayCue.Knockback");
+	NetMulticastImpactCue = TAG("GameplayCue.Impact.Bullet");
 	
 	Input = EAbilityInput::PrimaryFire;
 
@@ -25,6 +31,7 @@ UHitscanAbility::UHitscanAbility()
 	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Equipping"));
 	ActivationBlockedTags.AddTag(TAG("WeaponState.Reloading"));
+	ActivationBlockedTags.AddTag(TAG("WeaponState.Firing"));
 }
 
 void UHitscanAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
@@ -34,11 +41,10 @@ void UHitscanAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, 
 	if(const AWeapon* Weapon = INVENTORY->GetCurrent())
 	{
 		LineTraceObject.Get()->Range = Weapon->GetRange();
-		NumShots = Weapon->GetNumShots();
 	}
 
 	if(ActorInfo->IsNetAuthority() && !ActorInfo->IsLocallyControlled())
-	{
+	{// If server and not locally controlled, setup RPC delegates
 		GET_ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UHitscanAbility::Server_ReceivedEvent);
 		GET_ASC->AbilityTargetDataSetDelegate(Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UHitscanAbility::Server_ReceivedTargetData);
 	}
@@ -54,16 +60,20 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	// Locally add firing tag
+	GET_ASC->AddLooseGameplayTagForDurationSingle(FiringStateTag, CHARACTER->GetCurrentWeapon()->GetRateOfFire());
+
 	if(ActorInfo->IsLocallyControlled())
 	{// If locally controlled, play local firing animation
 		FGameplayCueParameters Params;
 		Params.Instigator = CHARACTER;
 		Params.EffectContext = GET_ASC->MakeEffectContextExtended(CHARACTER);
-		GET_ASC->ExecuteGameplayCueLocal(TAG("GameplayCue.FireWeapon.Local"), Params);
+		Params.RawMagnitude = PlayRate;
+		GET_ASC->ExecuteGameplayCueLocal(LocalFiringCue, Params);
 	}
 
 	TArray<FHitResult> Hits;
-	for(int32 i = 0; i < NumShots; i++)
+	for(int32 i = 0; i < CHARACTER->GetCurrentWeapon()->GetNumShots(); i++)
 	{
 		Hits.Add(LineTraceObject->DoLineTrace(GetCharacter()->GetCamera()->GetComponentLocation(), GetCharacter()->GetCamera()->GetComponentRotation(), {GetCharacter()}, 1.f, true));
 	}
@@ -77,9 +87,8 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 		
 	if(!DataHandle.Data.IsEmpty())
 	{
-		// Replicate target data if server, otherwise simply call the function
 		if(!ActorInfo->IsNetAuthority())
-		{
+		{// Replicate target data if server, otherwise simply call target data received
 			const FPredictionKey& Key = ActivationInfo.GetActivationPredictionKey();
 			GetASC()->ServerSetReplicatedTargetData(Handle, Key, DataHandle, FGameplayTag(), Key);
 			GetInventory()->GetCurrent()->OnFire();
@@ -90,7 +99,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 		}
 	}
 	else if(!ActorInfo->IsNetAuthority())
-	{
+	{// If no valid hits, RPC nothing. If server, simply call event received
 		const FPredictionKey& Key = ActivationInfo.GetActivationPredictionKey();
 		GetASC()->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Handle, Key, Key);
 		GetInventory()->GetCurrent()->OnFire();
@@ -104,25 +113,29 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 }
 
 void UHitscanAbility::Server_ReceivedEvent_Implementation() const
-{
-	if(!CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
+{// If failed prediction, return and update client predicted ammo
+	if(!CurrentActorInfo->IsLocallyControlled() && !CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
 	{
 		GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
 		return;
 	}
 	
+	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, GetCharacter()->GetCurrentWeapon()->GetRateOfFire());
 	GetInventory()->GetCurrent()->OnFire();
 }
 
 void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAbilityTargetDataHandle& Handle, FGameplayTag Tag) const
 {
-	GetASC()->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
-
-	// if can't activate ability server-side. Do nothing
-	if(!CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
+	if(!CurrentActorInfo->IsLocallyControlled())
 	{
-		GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
-		return;
+		GetASC()->ConsumeClientReplicatedTargetData(CurrentSpecHandle, CurrentActivationInfo.GetActivationPredictionKey());
+
+		// If failed prediction, return and update client predicted ammo
+		if(!CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
+		{
+			GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
+			return;
+		}
 	}
 	
 	const FGameplayEffectContextHandle& Context = GetASC()->MakeEffectContext();
@@ -131,22 +144,23 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 	const FGameplayEffectSpecHandle& Spec = GetASC()->MakeOutgoingSpec(DamageEffectClass, 1.f, Context);
 	Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrent()->GetDamageCalculationTags());
 
-	GetASC()->NetMulticast_InvokeGameplayCueExecuted(TAG("GameplayCue.Impact.Bullet"), CurrentActivationInfo.GetActivationPredictionKey(), Context);
-	GetASC()->NetMulticast_InvokeGameplayCueExecuted(TAG("GameplayCue.FireWeapon.NetMulticast"), CurrentActivationInfo.GetActivationPredictionKey(), GetASC()->MakeEffectContext());
+	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastImpactCue, CurrentActivationInfo.GetActivationPredictionKey(), Context);
+	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastFiringCue, CurrentActivationInfo.GetActivationPredictionKey(), GetASC()->MakeEffectContext());
 
 	TArray<AActor*> Targets;
 	for(const TSharedPtr<FGameplayAbilityTargetData>& Data : GAS::FilterTargetData<FGameplayAbilityTargetData_SingleTargetHit>(Handle).Data)
 		if(const FHitResult* Hit = Data.Get()->GetHitResult())
-			if(Hit->Component.IsValid() && Hit->GetComponent()->IsSimulatingPhysics(Hit->BoneName) && Targets.Find(Hit->GetActor()) == INDEX_NONE)
+			if(Targets.Find(Hit->GetActor()) == INDEX_NONE && GAS::ShouldProjectileApplyForce(Hit->GetComponent(), Hit->BoneName))
 				Targets.Add(Hit->GetActor());
 
 	for(const AActor* Target : Targets)
-	{
+	{// For each simulating target, filter target data by the target and net multicast apply knockback
 		FGameplayCueParameters Params(FGameplayEffectContextHandle(new FGameplayEffectContextExtended(GetCharacter(), GAS::FilterTargetDataByActor(Target, Handle))));
 		Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrent(), Target, Spec);
-		GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Knockback"), FPredictionKey(), Params);
+		GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastKnockbackCue, FPredictionKey(), Params);
 	}
-	
+
+	// Filter by hit actors that implement the IDamageInterface
 	TArray<AActor*> DamageableHits;
 	for(int32 i = 0; i < Handle.Data.Num(); i++)
 	{
@@ -161,7 +175,8 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 			}
 		}
 	}
-	
+
+	// Apply damage to each damageable target
 	if(!DamageableHits.IsEmpty())
 	{
 		if(Spec.IsValid())
@@ -173,5 +188,6 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 		}
 	}
 
+	// Generic received event to decrement ammo and apply firing tag
 	Server_ReceivedEvent_Implementation();
 }

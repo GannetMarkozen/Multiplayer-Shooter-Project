@@ -20,5 +20,8 @@ protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
 	UPROPERTY(EditAnywhere, Category = "Configurations")
-	float DropVelocity = 20000.f;
+	float DropVelocity = 30000.f;
+
+	UPROPERTY(EditAnywhere, Category = "Configurations")
+	FVector DropSpawnOffset = { 50.f, 0.f, -20.f };
 };

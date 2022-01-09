@@ -15,6 +15,8 @@
 #include "GAS/Effects/DeathEffect.h"
 #include "Net/UnrealNetwork.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
+#include "GAS/Abilities/DropItemAbility.h"
+#include "GAS/Abilities/EquipAbility.h"
 
 
 AShooterCharacter::AShooterCharacter()
@@ -206,7 +208,7 @@ void AShooterCharacter::Die(const FGameplayEffectSpecHandle& OptionalSpec)
 
 void AShooterCharacter::HealthChanged(const FOnAttributeChangeData& Data)
 {
-	if(Data.NewValue <= 0.f && Data.GEModData)
+	if(Data.NewValue <= 0.f && Data.GEModData && !ASC->HasMatchingGameplayTag(TAG("Status.State.Dead")))
 	{
 		Server_Death(Data.OldValue - Data.NewValue, FGameplayEffectSpecHandle(new FGameplayEffectSpec(Data.GEModData->EffectSpec)));
 	}
@@ -220,6 +222,7 @@ void AShooterCharacter::Server_Death_Implementation(const float Magnitude, const
 
 void AShooterCharacter::Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec)
 {// Called on all instances
+	/*
 	if(DeathEffectClass && !ASC->HasMatchingGameplayTag(TAG("Status.State.Dead")))
 	{
 		const FGameplayEffectSpecHandle& DeathSpec = ASC->MakeOutgoingSpec(DeathEffectClass, 1.f, ASC->MakeEffectContextExtended(this));
@@ -228,8 +231,9 @@ void AShooterCharacter::Death_Implementation(const float Magnitude, const FGamep
 			ASC->ApplyGameplayEffectSpecToSelf(*DeathSpec.Data.Get());
 			PRINT(TEXT("%s: Applied death effect"), *AUTHTOSTRING(HasAuthority()));
 		}
-	}
+	}*/
 	
+	ASC->AddLooseGameplayTag(TAG("Status.State.Dead"));
 	// Start ragdolling
 	Ragdoll(Magnitude, Spec);
 }

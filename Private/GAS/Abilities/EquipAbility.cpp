@@ -113,12 +113,12 @@ void UEquipAbility::Client_PredictionFailed_Implementation(const FGameplayAbilit
 }
 
 
-void UEquipAbility::EquipWeapon(UAbilitySystemComponent* ASC, int32 Index)
+int32 UEquipAbility::EquipWeapon(UAbilitySystemComponent* ASC, int32 Index)
 {
-	if(!ASC) return;
+	if(!ASC) return 0;
 	FGameplayEventData Data;
 	Data.Target = ASC->GetOwner();
 	Data.EventMagnitude = Index;
-	ASC->HandleGameplayEvent(TAG("Event.Equip"), &Data);
+	return ASC->HandleGameplayEvent(TAG("Event.Equip"), &Data);
 }
 

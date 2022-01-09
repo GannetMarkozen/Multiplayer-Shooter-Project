@@ -29,9 +29,10 @@ protected:
 		return ActivationInfo.GetActivationPredictionKey().IsValidForMorePrediction();
 	}
 
-public:	
+public:
+	// Returns num ability activations
 	UFUNCTION(BlueprintCallable, Category = "GAS|Ability")
-	static void EquipWeapon(class UAbilitySystemComponent* ASC, int32 Index);
+	static int32 EquipWeapon(class UAbilitySystemComponent* ASC, int32 Index);
 };
 
 UCLASS()

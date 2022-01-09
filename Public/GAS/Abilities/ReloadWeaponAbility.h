@@ -18,9 +18,12 @@ protected:
     virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
     virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 
-    // Speed at which to play the anim montages
+    // Speed at which to play the reload anim montages
     UPROPERTY(EditDefaultsOnly, Category = "Configurations")
     float PlayRate = 1.f;
+
+    UFUNCTION()
+    void Server_SetAmmo(class UGASAbilitySystemComponent* ASC, const FGameplayTag& Tag);
 
     // Reload when ammo has been depleted
     UPROPERTY(EditDefaultsOnly, Category = "Configurations")

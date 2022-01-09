@@ -12,6 +12,14 @@
 
 //DECLARE_DELEGATE_ThreeParams(FAttributeChangedDelegate, float, float, const FGameplayEffectSpecHandle&);
 
+struct FASCTagPair
+{
+	class UGASAbilitySystemComponent* ASC = nullptr;
+	FGameplayTag Tag;
+	FASCTagPair(){}
+	FASCTagPair(class UGASAbilitySystemComponent* ASC, const FGameplayTag& Tag) { this->ASC = ASC; this->Tag = Tag; }
+};
+
 // Object attribute pair hash key for TMap
 USTRUCT()
 struct FObjAttrPair
@@ -122,13 +130,23 @@ public:
 				RemoveLooseGameplayTag(*Itr, Count);
 	}
 
-	// Adds loose tag for the given duration
+	// Adds loose tag for the given duration, callback param: UGASAbilitySystemComponent*, const FGameplayTag&
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tag"), Category = "GAS")
-	void AddLooseGameplayTagForDuration(const FGameplayTag& Tag, const float Duration, const int32 Count = 1);
+	void AddLooseGameplayTagForDuration(const FGameplayTag& Tag, const float Duration, const int32 Count = 1, class UObject* OptionalCallbackObject = nullptr, const FName& OptionalCallbackFuncName = NAME_None);
 
-	// Only adds tag if there is none currently added for a duration. Else sets time for removal to the given duration
+	// Only adds tag if there is none currently added for a duration. Else sets time for removal to the given duration, callback param: UGASAbilitySystemComponent*, const FGameplayTag&
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tag"), Category = "GAS")
-	void AddLooseGameplayTagForDurationSingle(const FGameplayTag& Tag, const float Duration);
+	void AddLooseGameplayTagForDurationSingle(const FGameplayTag& Tag, const float Duration, class UObject* OptionalCallbackObject = nullptr, const FName& OptionalCallbackFuncName = NAME_None);
+
+	// Removes loose gameplay tag and cancels it's remove duration
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Tag"), Category = "GAS")
+	bool CancelLooseGameplayTagDuration(const FGameplayTag& Tag);
+
+	// Same as AddLooseGameplayTagForDuration but with an optional delegate useful in C++
+	void AddLooseGameplayTagForDuration_Static(const FGameplayTag& Tag, const float Duration, const int32 Count = 1, const TDelegate<void(class UGASAbilitySystemComponent*, const FGameplayTag&)>* OptionalDelegate = nullptr);
+
+	// Same as AddLooseGameplayTagForDurationSingle but with an optional delegate useful in C++
+	void AddLooseGameplayTagForDurationSingle_Static(const FGameplayTag& Tag, const float Duration, const TDelegate<void(class UGASAbilitySystemComponent*, const FGameplayTag&)>* OptionalDelegate = nullptr);
 
 	// Binds attribute changing to object function. Params are float (NewValue), float (OldValue), const FGameplayEffectContextHandle& (Context)
 	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Object", AutoCreateRefTerm = "Attribute"), Category = "GAS")

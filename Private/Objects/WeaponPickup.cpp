@@ -18,7 +18,8 @@ AWeaponPickup::AWeaponPickup()
 AWeaponPickup* AWeaponPickup::SpawnWeaponPickup(AWeapon* Weapon, const FVector& Location, const FVector& OptionalVelocity)
 {
 	if(!Weapon) return nullptr;
-	AWeaponPickup* Pickup = Weapon->GetWorld()->SpawnActorDeferred<AWeaponPickup>(AWeaponPickup::StaticClass(), FTransform(Location), nullptr,
+	const FTransform SpawnTransform(FRotator(0.f, FMath::FRandRange(0.f, 360.f), 0.f), Location);
+	AWeaponPickup* Pickup = Weapon->GetWorld()->SpawnActorDeferred<AWeaponPickup>(AWeaponPickup::StaticClass(), SpawnTransform, nullptr,
 		Weapon->GetCurrentOwner(), ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
 	
 	Pickup->Weapon = Weapon;

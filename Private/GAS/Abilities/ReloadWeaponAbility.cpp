@@ -44,7 +44,7 @@ void UReloadWeaponAbility::OnRemoveAbility(const FGameplayAbilityActorInfo* Acto
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	const AWeapon* Current = CHARACTER->GetCurrentWeapon();
-	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && Current && Current->Ammo < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->Ammo && Current->ReserveAmmo > 0;
+	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && Current && Current->GetAmmo() < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->GetAmmo() && Current->GetReserveAmmo() > 0;
 }
 
 
@@ -58,22 +58,23 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		Params.Instigator = CHARACTER;
 		Params.EffectContext = GET_ASC->MakeEffectContext();
 		Params.RawMagnitude = PlayRate;
-
-		// Add reloading tags on both server and client
-		GET_ASC->AddLooseGameplayTagForDuration(TAG("WeaponState.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
 		
+		// Add reloading tags on both server and client
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
 			if(CHARACTER->GetCurrentWeapon()->GetTP_EquipMontage())
 				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Reload.NetMulticast"), ActivationInfo.GetActivationPredictionKey(), Params);
 
-			int32& Ammo = CHARACTER->GetCurrentWeapon()->Ammo;
-			int32& ReserveAmmo = CHARACTER->GetCurrentWeapon()->ReserveAmmo;
-
-			const int32 OldAmmo = Ammo;
-			Ammo = FMath::Min<int32>(ReserveAmmo, static_cast<AWeapon*>(INVENTORY->GetCurrent()->GetClass()->GetDefaultObject())->Ammo);
-			ReserveAmmo += OldAmmo - Ammo;
+			// If server, add reload state and at the end call the callback delegate that sets the ammo
+			TDelegate<void(UGASAbilitySystemComponent*, const FGameplayTag&)> CallbackDelegate;
+			CallbackDelegate.BindUObject(this, &UReloadWeaponAbility::Server_SetAmmo);
+			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(TAG("WeaponState.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate, &CallbackDelegate);
 		}
+		else
+		{// If client, add reload state tag but do not set ammo
+			GET_ASC->AddLooseGameplayTagForDuration(TAG("WeaponState.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
+		}
+		
 		if(ActorInfo->IsLocallyControlled())
 		{// Play first person reload animation locally
 			GET_ASC->ExecuteGameplayCueLocal(TAG("GameplayCue.Reload.Local"), Params);
@@ -82,6 +83,16 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	}
 	else EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 }
+
+void UReloadWeaponAbility::Server_SetAmmo(UGASAbilitySystemComponent* ASC, const FGameplayTag& Tag)
+{
+	const AShooterCharacter* Character = ((FGameplayAbilityActorInfoExtended*)ASC->AbilityActorInfo.Get())->Character.Get();
+	const int32 ReserveAmmo = Character->GetCurrentWeapon()->GetReserveAmmo();
+	const int32 OldAmmo = Character->GetCurrentWeapon()->GetAmmo();
+	Character->GetCurrentWeapon()->SetAmmo(FMath::Min<int32>(ReserveAmmo, static_cast<const AWeapon*>(Character->GetCurrentWeapon()->GetClass()->GetDefaultObject())->GetAmmo()));
+	Character->GetCurrentWeapon()->SetReserveAmmo(ReserveAmmo + OldAmmo - Character->GetCurrentWeapon()->GetAmmo());
+}
+
 
 void UReloadWeaponAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
@@ -133,7 +144,7 @@ void UReloadWeaponActivationAbility::OnRemoveAbility(const FGameplayAbilityActor
 
 void UReloadWeaponActivationAbility::AmmoChanged(int32 Ammo)
 {
-	if(Ammo <= 0.f && GetCharacter()->GetCurrentWeapon() && GetCharacter()->GetCurrentWeapon()->ReserveAmmo > 0)
+	if(Ammo <= 0.f && GetCharacter()->GetCurrentWeapon() && GetCharacter()->GetCurrentWeapon()->GetReserveAmmo() > 0)
 		GetASC()->TryActivateAbilityByClass(UReloadWeaponAbility::StaticClass());
 }
 
