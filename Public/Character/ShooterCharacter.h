@@ -193,6 +193,13 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
 	FInspectTextUpdate HUDInspectTextDelegate;
 
+	// Calls HUD Inspect Text Delegate
+	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Text"), Category = "Character|Delegates")
+	FORCEINLINE void SetInspectText(const FText& Text)
+	{
+		HUDInspectTextDelegate.Broadcast(Text);
+	}
+
 protected:
 	// Anim configurations
 	UPROPERTY(EditAnywhere, Category = "Anim")

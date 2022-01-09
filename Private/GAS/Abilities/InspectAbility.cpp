@@ -15,6 +15,8 @@ UInspectAbility::UInspectAbility()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	
 	ActivationBlockedTags.AddTag(TAG("Status.State.Interacting"));
+	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
+	ActivationBlockedTags.AddTag(TAG("Status.Debuff.Stunned"));
 }
 
 void UInspectAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)

@@ -28,6 +28,15 @@ protected:
     // Reload when ammo has been depleted
     UPROPERTY(EditDefaultsOnly, Category = "Configurations")
     bool bReloadOnEnd = true;
+
+    UPROPERTY(EditDefaultsOnly, Meta = (Categories = "WeaponState"), Category = "Configurations")
+    FGameplayTag ReloadStateTag = TAG("WeaponState.Reloading");
+
+    UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue"), Category = "Configurations")
+    FGameplayTag LocalReloadingCue = TAG("GameplayCue.Reload.Local");
+
+    UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue"), Category = "Configurations")
+    FGameplayTag NetMulticastReloadingCue = TAG("GameplayCue.Reload.NetMulticast");
 };
 
 UCLASS()

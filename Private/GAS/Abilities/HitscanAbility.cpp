@@ -28,7 +28,7 @@ UHitscanAbility::UHitscanAbility()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
-	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
+	ActivationBlockedTags.AddTag(TAG("Status.Debuff.Stunned"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Equipping"));
 	ActivationBlockedTags.AddTag(TAG("WeaponState.Reloading"));
 	ActivationBlockedTags.AddTag(TAG("WeaponState.Firing"));
@@ -75,7 +75,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 	TArray<FHitResult> Hits;
 	for(int32 i = 0; i < CHARACTER->GetCurrentWeapon()->GetNumShots(); i++)
 	{
-		Hits.Add(LineTraceObject->DoLineTrace(GetCharacter()->GetCamera()->GetComponentLocation(), GetCharacter()->GetCamera()->GetComponentRotation(), {GetCharacter()}, 1.f, true));
+		Hits.Add(LineTraceObject->DoLineTrace(GetCharacter()->GetCamera()->GetComponentLocation(), GetCharacter()->GetCamera()->GetComponentRotation(), {GetCharacter()}, 1.f));
 	}
 
 	FGameplayAbilityTargetDataHandle DataHandle;

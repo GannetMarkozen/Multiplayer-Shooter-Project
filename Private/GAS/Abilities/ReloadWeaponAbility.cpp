@@ -14,7 +14,7 @@ UReloadWeaponAbility::UReloadWeaponAbility()
 	Input = EAbilityInput::Reload;
 
 	ActivationBlockedTags.AddTag(TAG("Status.State.Dead"));
-	ActivationBlockedTags.AddTag(TAG("Status.State.Stunned"));
+	ActivationBlockedTags.AddTag(TAG("Status.Debuff.Stunned"));
 	ActivationBlockedTags.AddTag(TAG("WeaponState.Reloading"));
 	ActivationBlockedTags.AddTag(TAG("Status.State.Interacting"));
 	
@@ -63,21 +63,21 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
 			if(CHARACTER->GetCurrentWeapon()->GetTP_EquipMontage())
-				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(TAG("GameplayCue.Reload.NetMulticast"), ActivationInfo.GetActivationPredictionKey(), Params);
+				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastReloadingCue, ActivationInfo.GetActivationPredictionKey(), Params);
 
 			// If server, add reload state and at the end call the callback delegate that sets the ammo
 			TDelegate<void(UGASAbilitySystemComponent*, const FGameplayTag&)> CallbackDelegate;
 			CallbackDelegate.BindUObject(this, &UReloadWeaponAbility::Server_SetAmmo);
-			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(TAG("WeaponState.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate, &CallbackDelegate);
+			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(ReloadStateTag, CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate, &CallbackDelegate);
 		}
 		else
 		{// If client, add reload state tag but do not set ammo
-			GET_ASC->AddLooseGameplayTagForDuration(TAG("WeaponState.Reloading"), CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
+			GET_ASC->AddLooseGameplayTagForDuration(ReloadStateTag, CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
 		}
 		
 		if(ActorInfo->IsLocallyControlled())
 		{// Play first person reload animation locally
-			GET_ASC->ExecuteGameplayCueLocal(TAG("GameplayCue.Reload.Local"), Params);
+			GET_ASC->ExecuteGameplayCueLocal(LocalReloadingCue, Params);
 		}
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 	}

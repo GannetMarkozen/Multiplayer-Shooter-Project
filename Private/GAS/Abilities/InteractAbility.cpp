@@ -65,6 +65,7 @@ void UInteractAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 			Task->OnRelease.AddDynamic(this, &UInteractAbility::OnInputReleased);
 			Task->Activate();
 		}
+		else OnInputReleased(0.f);
 
 		// Replicate interactable object to the server and set it there
 		const FGameplayAbilityTargetDataHandle Data(new FGameplayAbilityTargetData_ActorArray());
@@ -83,7 +84,7 @@ void UInteractAbility::Interact_Implementation(AActor* Actor)
 
 void UInteractAbility::EndInteract_Implementation()
 {
-	GetASC()->RemoveLooseGameplayTag(InteractingTag);
+	GetASC()->RemoveLooseGameplayTag(InteractingTag, 10);
 	if(IsValid(InteractActor))
 		IInteractInterface::Execute_EndInteract(InteractActor, GetCharacter());
 	

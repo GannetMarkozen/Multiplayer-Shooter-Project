@@ -20,6 +20,7 @@ AWeapon::AWeapon()
 	
 	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
 	FP_Mesh->SetOnlyOwnerSee(true);
+	FP_Mesh->SetCastShadow(false);
 	FP_Mesh->SetSimulatePhysics(false);
 	FP_Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FP_Mesh->SetCollisionObjectType(ECC_Pawn);
