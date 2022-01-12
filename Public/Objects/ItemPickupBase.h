@@ -24,7 +24,6 @@ public:
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION()
 	void SphereHit(class UPrimitiveComponent* HitComponent, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
@@ -35,23 +34,11 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, Category = "State")
 	float BobProgress = 0.f;
 
-	// Initialize this when spawning
+	// The point to spin about
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	TObjectPtr<class USkeletalMeshComponent> Mesh;
-
-	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_SkeletalMesh, Category = "Item Pickup")
-	class USkeletalMesh* SkeletalMesh;
-
-	UFUNCTION()
-	FORCEINLINE void OnRep_SkeletalMesh() { Mesh->SetSkeletalMesh(SkeletalMesh); }
+	TObjectPtr<class USceneComponent> MeshRoot;
 	
 public:
-	UFUNCTION(BlueprintCallable, Category = "Item Pickup")
-	FORCEINLINE void SetSkeletalMesh(class USkeletalMesh* NewMesh)
-	{
-		SkeletalMesh = NewMesh;
-		OnRep_SkeletalMesh();
-	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurations")
 	bool bDoItemAnim = true;

@@ -7,12 +7,27 @@
 #include "GameFramework/Actor.h"
 #include "EffectVolume.generated.h"
 
+
+
+USTRUCT(BlueprintType)
+struct FEffectLevelPair
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<class UGameplayEffect> Effect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 Level = 1;
+};
+
 /** An actor initialized with funcitons
- *	to apply an effect for the duration
- *	a character is overlapping the
- *	rootcomponent. Must be a primitive
- *	component.
- */
+*	to apply an effect for the duration
+*	a character is overlapping the
+*	rootcomponent. Must be a primitive
+*	component.
+*/
+
 UCLASS()
 class MULTIPLAYERSHOOTER_API AEffectVolume : public AActor
 {
@@ -36,6 +51,7 @@ protected:
 	void CharacterEndOverlap(class AShooterCharacter* Character);
 	virtual void CharacterEndOverlap_Implementation(class AShooterCharacter* Character);
 
+	
 	// The active effect handle with the associated character
 	UPROPERTY(VisibleInstanceOnly, Category = "State")
 	TMap<class AShooterCharacter*, FActiveGameplayEffectHandle> ActiveEffectHandles;
@@ -45,14 +61,21 @@ protected:
 	// This ensures the period time has ended before being applied to the character again
 	UPROPERTY(VisibleInstanceOnly, Category = "State")
 	TMap<class AShooterCharacter*, FTimerHandle> EndPeriodTimerHandles;
-
-public:
+	
 	// The effect to be applied for the duration the character is within in the effect volume
 	UPROPERTY(EditAnywhere, Category = "Configurations")
 	TSubclassOf<class UGameplayEffect> EffectClass;
 
 	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float Level = 1.f;
+
+	// Casted primitive root component
+	UPROPERTY(BlueprintReadWrite, Meta = (DisplayName = "Primitive Root Component"), Category = "State")
+	TObjectPtr<class UPrimitiveComponent> OverlapComp;
+
+	// Override to have the overlap component not be the root comp. Must be primitive component
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	FName OverlapCompName = NAME_None;
 
 	UPROPERTY(EditAnywhere, Category = "Configurations")
 	bool bApplyOnlyOnServer = true;

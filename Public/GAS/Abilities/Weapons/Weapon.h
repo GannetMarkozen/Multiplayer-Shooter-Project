@@ -26,6 +26,33 @@ struct FMeshTableRow : public FTableRowBase
 	FName ForegripName = "Foregrip";
 };
 
+USTRUCT(BlueprintType)
+struct FGameplayAttributeDataHandle
+{
+	GENERATED_BODY()
+
+	FGameplayAttributeData* Data = nullptr;
+	FGameplayAttributeDataHandle(){}
+	FGameplayAttributeDataHandle(FGameplayAttributeData* Data) { this->Data = Data; }
+	FGameplayAttributeData* operator->() const
+	{
+		return Data;
+	}
+};
+
+UCLASS()
+class MULTIPLAYERSHOOTER_API UAttributeDataHandleFuncs : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+public:
+	UFUNCTION(BlueprintPure, Category = "Attribute Data")
+	static FORCEINLINE bool IsValid(const FGameplayAttributeDataHandle& AttributeDataHandle) { return AttributeDataHandle.Data != nullptr; }
+	
+	// Only call if you know it is valid
+	UFUNCTION(BlueprintPure, Category = "Attribute Data")
+	static FORCEINLINE FGameplayAttributeData& Get(const FGameplayAttributeDataHandle& AttributeDataHandle) { return *AttributeDataHandle.Data; }
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated, int32, Ammo);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponReserveAmmoUpdated, int32, ReserveAmmo);
 
@@ -42,7 +69,6 @@ public:
 
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return BaseDamage; }
 
@@ -175,19 +201,27 @@ public:
 	FORCEINLINE class AShooterCharacter* GetCurrentOwner() const { return CurrentOwner; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE class UInventoryComponent* GetCurrentInventory() const { return CurrentInventory; }
+
+	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE float GetRange() const { return Range; }
 	
 	friend void CallOnObtained(class AWeapon* Weapon, class UInventoryComponent* Inventory);
+	friend void CallOnRemoved(class AWeapon* Weapon, class UInventoryComponent* Inventory);
 protected:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnObtained(class UInventoryComponent* Inventory);
 	virtual void OnObtained_Implementation(class UInventoryComponent* Inventory);
 
-	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_CurrentOwner)
-	class AShooterCharacter* CurrentOwner;
-	
-	UPROPERTY(BlueprintReadWrite)
+	UFUNCTION(BlueprintNativeEvent)
+	void OnRemoved(class UInventoryComponent* Inventory);
+	virtual void OnRemoved_Implementation(class UInventoryComponent* Inventory);
+
+	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_CurrentInventory)
 	class UInventoryComponent* CurrentInventory;
+
+	UPROPERTY(BlueprintReadWrite)
+	class AShooterCharacter* CurrentOwner;
 
 	UPROPERTY(BlueprintReadWrite)
 	class UCharacterInventoryComponent* CurrentCharacterInventory;
@@ -195,17 +229,29 @@ protected:
 	UPROPERTY(BlueprintReadWrite)
 	class UGASAbilitySystemComponent* CurrentASC;
 
+	//UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
+	//void OnRep_CurrentOwner(const class AShooterCharacter* OldOwner);
+	//virtual void OnRep_CurrentOwner_Implementation(const class AShooterCharacter* OldOwner);
+
 	UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
-	void OnRep_CurrentOwner(const class AShooterCharacter* OldOwner);
-	virtual void OnRep_CurrentOwner_Implementation(const class AShooterCharacter* OldOwner);
+	void OnRep_CurrentInventory(const class UInventoryComponent* OldInventory);
+	virtual void OnRep_CurrentInventory_Implementation(const class UInventoryComponent* OldInventory);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_Ammo, Meta = (EditCondition = "bUseAmmo"))
 	int32 Ammo = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_ReserveAmmo, Meta = (EditCondition = "bUseAmmo"))
-	int32 ReserveAmmo = 0;
+	
+	// The ammo type to decrement from reserve ammo attribute
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	FGameplayAttribute AmmoAttribute;
 	
 public:
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FORCEINLINE void SetVisibility(const bool bIsVisible) const
+	{
+		TP_Mesh->SetVisibility(bIsVisible);
+		FP_Mesh->SetVisibility(bIsVisible);
+	}
+	
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	FORCEINLINE int32 GetAmmo() const { return Ammo; }
 
@@ -219,16 +265,23 @@ public:
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	FORCEINLINE int32 GetReserveAmmo() const { return ReserveAmmo; }
+	const FORCEINLINE FGameplayAttribute& GetAmmoAttribute() const { return AmmoAttribute; }
+
+	// Gets reference to ammo attribute data
+	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Get Ammo Attribute Data"), Category = "Weapon")
+	FGameplayAttributeDataHandle GetAmmoAttributeDataHandle() const
+	{
+		return FGameplayAttributeDataHandle(GetAmmoAttributeData());
+	}
+
+	// Gets ammo attribute data ptr from set
+	FGameplayAttributeData* GetAmmoAttributeData() const;
+	
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	FORCEINLINE int32 GetReserveAmmo() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	FORCEINLINE void SetReserveAmmo(const int32 NewReserveAmmo)
-	{
-		if(NewReserveAmmo == ReserveAmmo) return;
-		const int32 OldReserveAmmo = ReserveAmmo;
-		ReserveAmmo = NewReserveAmmo;
-		OnRep_ReserveAmmo(OldReserveAmmo);
-	}
+	FORCEINLINE void SetReserveAmmo(const int32 NewReserveAmmo);
 	
 	// Should be overriden
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
@@ -268,12 +321,11 @@ protected:
 		AmmoDelegate.Broadcast(Ammo);
 		AmmoDelegate_Static.Broadcast(Ammo);
 	}
-
-	UFUNCTION()
-	virtual FORCEINLINE void OnRep_ReserveAmmo(const int32& OldReserveAmmo)
+	
+	FORCEINLINE void ReserveAmmoUpdated(const FOnAttributeChangeData& Data)
 	{
-		ReserveAmmoDelegate.Broadcast(ReserveAmmo);
-		ReserveAmmoDelegate_Static.Broadcast(ReserveAmmo);
+		ReserveAmmoDelegate.Broadcast(GetReserveAmmo());
+		ReserveAmmoDelegate_Static.Broadcast(GetReserveAmmo());
 	}
 
 	UFUNCTION(Client, Reliable)

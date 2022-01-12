@@ -3,7 +3,7 @@
 
 #include "GAS/Effects/DamageEffect.h"
 
-#include "GAS/GASAttributeSet.h"
+#include "GAS/AttributeSets/CharacterAttributeSet.h"
 #include "GAS/Effects/DamageExecutionCalculation.h"
 
 UDamageEffect::UDamageEffect()
@@ -18,6 +18,6 @@ UDamageEffect::UDamageEffect()
 	ApplicationTagRequirements.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Status.State.Invincible")));
 
 	FGameplayEffectCue Cue(TAG("GameplayCue.Damage"), 0.f, 0.f);
-	Cue.MagnitudeAttribute = UGASAttributeSet::GetHealthAttribute();
+	Cue.MagnitudeAttribute = UCharacterAttributeSet::GetHealthAttribute();
 	GameplayCues.Add(Cue);
 }

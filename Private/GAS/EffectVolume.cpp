@@ -15,12 +15,30 @@ void AEffectVolume::BeginPlay()
 	Super::BeginPlay();
 	
 	if(bApplyOnlyOnServer && !HasAuthority()) return;
-	if(UPrimitiveComponent* OverlapComp = Cast<UPrimitiveComponent>(RootComponent))
+	if(OverlapCompName != NAME_None)
+	{
+		TArray<UPrimitiveComponent*> Comps;
+		GetComponents<UPrimitiveComponent>(Comps);
+		for(UPrimitiveComponent* Comp : Comps)
+			if(Comp->GetFName() == OverlapCompName)
+			{
+				OverlapComp = Comp;
+				break;
+			}
+	}
+	else
+	{
+		OverlapComp = Cast<UPrimitiveComponent>(RootComponent);
+	}
+			
+	if(OverlapComp)
 	{
 		OverlapComp->OnComponentBeginOverlap.AddDynamic(this, &AEffectVolume::BeginOverlap);
 		OverlapComp->OnComponentEndOverlap.AddDynamic(this, &AEffectVolume::EndOverlap);
 	}
 }
+
+
 
 void AEffectVolume::BeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -32,9 +50,8 @@ void AEffectVolume::BeginOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 void AEffectVolume::EndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	if(AShooterCharacter* Character = Cast<AShooterCharacter>(OtherActor))
-		if(const UPrimitiveComponent* OverlapComp = Cast<UPrimitiveComponent>(RootComponent))
-			if(!OverlapComp->IsOverlappingActor(Character))
-				CharacterEndOverlap(Character);
+		if(!OverlapComp->IsOverlappingActor(Character))
+			CharacterEndOverlap(Character);
 }
 
 void AEffectVolume::CharacterBeginOverlap_Implementation(AShooterCharacter* Character)
@@ -75,7 +92,6 @@ void AEffectVolume::CharacterEndOverlap_Implementation(AShooterCharacter* Charac
 		ActiveEffectHandles.Remove(Character);
 	}
 }
-
 
 
 

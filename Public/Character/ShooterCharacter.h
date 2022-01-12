@@ -8,12 +8,11 @@
 #include "GAS/GASAbilitySystemComponent.h"
 #include "Character/CharacterInventoryComponent.h"
 #include "GAS/DamageInterface.h"
-#include "GAS/GASAttributeSet.h"
+#include "GAS/AttributeSets/CharacterAttributeSet.h"
 
 #include "ShooterCharacter.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FChangedWeapons, class AWeapon*, NewWeapon, const class AWeapon*, OldWeapon);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInspectTextUpdate, const FText&, Text);
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterCharacter : public ACharacter, public IAbilitySystemInterface, public IInventoryInterface, public IDamageInterface
@@ -48,7 +47,10 @@ protected:
 	TObjectPtr<class UGASAbilitySystemComponent> ASC;
 
 	UPROPERTY()
-	TObjectPtr<class UGASAttributeSet> Attributes;
+	TObjectPtr<class UCharacterAttributeSet> CharacterSet;
+
+	UPROPERTY()
+	TObjectPtr<class UAmmoAttributeSet> AmmoSet;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
 	TObjectPtr<class UCharacterInventoryComponent> Inventory;
@@ -188,17 +190,16 @@ public:
 	// Called whenever swapping weapons
 	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
 	FChangedWeapons ChangedWeaponsDelegate;
+	
+	// Update HUD
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "ReserveAmmoText"), Category = "HUD")
+	void SetReserveAmmoText(const FText& ReserveAmmoText);
 
-	// Call to update the inspect text on the HUD
-	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
-	FInspectTextUpdate HUDInspectTextDelegate;
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "AmmoText"), Category = "HUD")
+	void SetAmmoText(const FText& AmmoText);
 
-	// Calls HUD Inspect Text Delegate
-	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "Text"), Category = "Character|Delegates")
-	FORCEINLINE void SetInspectText(const FText& Text)
-	{
-		HUDInspectTextDelegate.Broadcast(Text);
-	}
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "InspectText"), Category = "HUD")
+	void SetInspectText(const FText& InspectText);
 
 protected:
 	// Anim configurations

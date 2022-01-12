@@ -73,6 +73,7 @@ void UEquipAbility::Equip_Implementation(AWeapon* NewWeapon, AWeapon* OldWeapon,
 
 	// Set current weapon
 	ActorInfo.Character.Get()->SetCurrentWeapon(NewWeapon);
+	/*
 	if(OldWeapon)
 	{
 		OldWeapon->GetFP_Mesh()->SetVisibility(false);
@@ -88,24 +89,14 @@ void UEquipAbility::Equip_Implementation(AWeapon* NewWeapon, AWeapon* OldWeapon,
 		// Add abilities from new weapon
 		if(ActorInfo.IsNetAuthority())
 			ActorInfo.Inventory.Get()->GiveAbilities(NewWeapon);
-	}
+	}*/
 }
 
 void UEquipAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	Super::Client_PredictionFailed_Implementation(ActorInfo);
-	/*
-	UCharacterInventoryComponent* Inventory = ActorInfo.Inventory.Get();
-	if(Inventory->GetWeapons().IsValidIndex(Inventory->GetLastIndex()))
-	{
-		Inventory->SetCurrentIndex(Inventory->GetLastIndex());
-		Equip(Inventory->GetWeapons()[Inventory->GetLastIndex()], Inventory->GetCurrent(), ActorInfo);
-		
-		if(UAnimInstance* AnimInstance = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
-			AnimInstance->Montage_Stop(0.f);
-	}
-	else PRINT(TEXT("Failed"));*/
-
+	
+	// Sets current equipped weapon to last equipped index and stops all anim montages
 	ActorInfo.Inventory.Get()->SetCurrentIndex(ActorInfo.Inventory.Get()->GetLastIndex());
 	Equip(ActorInfo.Inventory.Get()->GetCurrent(), ActorInfo.Inventory.Get()->GetWeapons()[ActorInfo.Inventory.Get()->GetLastIndex()], ActorInfo);
 	if(UAnimInstance* Anim = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())

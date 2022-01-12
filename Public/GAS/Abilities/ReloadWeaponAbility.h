@@ -29,6 +29,13 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Configurations")
     bool bReloadOnEnd = true;
 
+    UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")
+    void AmmoChanged(const int32 Ammo);
+    virtual void AmmoChanged_Implementation(const int32 Ammo);
+
+    UPROPERTY(BlueprintReadWrite, Category = "GAS|Ability")
+    TObjectPtr<class AWeapon> CurrentWeapon;
+
     UPROPERTY(EditDefaultsOnly, Meta = (Categories = "WeaponState"), Category = "Configurations")
     FGameplayTag ReloadStateTag = TAG("WeaponState.Reloading");
 
@@ -38,17 +45,3 @@ protected:
     UPROPERTY(EditDefaultsOnly, Meta = (Categories = "GameplayCue"), Category = "Configurations")
     FGameplayTag NetMulticastReloadingCue = TAG("GameplayCue.Reload.NetMulticast");
 };
-
-UCLASS()
-class MULTIPLAYERSHOOTER_API UReloadWeaponActivationAbility : public UGASGameplayAbility
-{
-    GENERATED_BODY()
-public:
-    UReloadWeaponActivationAbility();
-    virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
-    virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
-
-    UFUNCTION()
-    void AmmoChanged(int32 Ammo);
-};
-

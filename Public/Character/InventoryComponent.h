@@ -24,6 +24,15 @@ protected:
 	virtual class UInventoryComponent* GetInventory_Implementation() = 0;
 };
 
+USTRUCT(BlueprintType)
+struct FWeaponsContainer
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Something")
+	TArray<AWeapon*> Weapons;
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FUpdateInventory);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -44,11 +53,9 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_Weapons, Category = "Items")
 	TArray<class AWeapon*> Weapons;
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "OnRep_Weapons"), Category = "Items")
-	void BP_OnRep_Weapons(const TArray<class AWeapon*>& OldWeapons);
-
 	UFUNCTION()
-	virtual FORCEINLINE void OnRep_Weapons(const TArray<class AWeapon*>& OldWeapons) { BP_OnRep_Weapons(OldWeapons); }
+	virtual void OnRep_Weapons();
+	
 
 	// Whether or not we can add this weapon. Should take into account filters and max size of inventory
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Items")

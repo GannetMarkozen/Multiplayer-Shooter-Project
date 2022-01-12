@@ -3,11 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameplayAbilities/Public/AttributeSet.h"
+#include "GAS/GASAttributeSet.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
 
-#include "GASAttributeSet.generated.h"
+#include "CharacterAttributeSet.generated.h"
 
 // Helper macros from Attribute.h
 #define ATTRIBUTE_ACCESSORS(ClassName, PropertyName)\
@@ -20,42 +20,45 @@
  * 
  */
 UCLASS()
-class MULTIPLAYERSHOOTER_API UGASAttributeSet : public UAttributeSet
+class MULTIPLAYERSHOOTER_API UCharacterAttributeSet : public UAttributeSet
 {
 	GENERATED_BODY()
 public:
-	UGASAttributeSet();
+	UCharacterAttributeSet();
+	
+protected:	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data) override;
-
+	
+public:	
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, Category = "Attributes")
 	FGameplayAttributeData Health;
-	ATTRIBUTE_ACCESSORS(UGASAttributeSet, Health)
+	ATTRIBUTE_ACCESSORS(UCharacterAttributeSet, Health)
 	UFUNCTION()
 	virtual void OnRep_Health(const FGameplayAttributeData& OldHealth);
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MaxHealth, Category = "Attributes")
 	FGameplayAttributeData MaxHealth;
-	ATTRIBUTE_ACCESSORS(UGASAttributeSet, MaxHealth);
+	ATTRIBUTE_ACCESSORS(UCharacterAttributeSet, MaxHealth);
 	UFUNCTION()
 	virtual void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MovementSpeed, Category = "Attributes")
 	FGameplayAttributeData MovementSpeed;
-	ATTRIBUTE_ACCESSORS(UGASAttributeSet, MovementSpeed);
+	ATTRIBUTE_ACCESSORS(UCharacterAttributeSet, MovementSpeed);
 	UFUNCTION()
 	virtual void OnRep_MovementSpeed(const FGameplayAttributeData& OldMovementSpeed);
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_BulletResistance, Category = "Attributes")
 	FGameplayAttributeData BulletResistance;
-	ATTRIBUTE_ACCESSORS(UGASAttributeSet, BulletResistance);
+	ATTRIBUTE_ACCESSORS(UCharacterAttributeSet, BulletResistance);
 	UFUNCTION()
 	virtual void OnRep_BulletResistance(const FGameplayAttributeData& OldBulletResistance);
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_ExplosionResistance, Category = "Attributes")
 	FGameplayAttributeData ExplosionResistance;
-	ATTRIBUTE_ACCESSORS(UGASAttributeSet, ExplosionResistance);
+	ATTRIBUTE_ACCESSORS(UCharacterAttributeSet, ExplosionResistance);
 	UFUNCTION()
 	virtual void OnRep_ExplosionResistance(const FGameplayAttributeData& OldExplosionResistance);
 };

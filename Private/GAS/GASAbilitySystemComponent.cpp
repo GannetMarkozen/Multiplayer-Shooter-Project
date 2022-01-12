@@ -307,5 +307,14 @@ void CallClient_PredictionSucceededWithEventData(UGASGameplayAbility* Ability, c
 	if(Ability) Ability->Client_PredictionSucceededWithEventData(EventData, (FGameplayAbilityActorInfoExtended&)*ASC->AbilityActorInfo.Get());
 }
 
+FGameplayAttributeData* UGASAbilitySystemComponent::FindAttributeData(const FGameplayAttribute& Attribute) const
+{
+	if(Attribute.IsValid())
+		for(UAttributeSet* Set : GetSpawnedAttributes())
+			if(Set->GetClass()->IsChildOf(Attribute.GetAttributeSetClass()))
+				return Attribute.GetUProperty()->ContainerPtrToValuePtr<FGameplayAttributeData>(Set);
+			
+	return nullptr;
+}
 
 

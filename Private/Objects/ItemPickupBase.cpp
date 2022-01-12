@@ -5,6 +5,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GAS/Abilities/Weapons/Weapon.h"
+#include "Kismet/KismetMathLibrary.h"
 
 #include "MultiplayerShooter/MultiplayerShooter.h"
 #include "Net/UnrealNetwork.h"
@@ -30,10 +31,8 @@ AItemPickupBase::AItemPickupBase()
 	OverlapSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	RootComponent = OverlapSphere;
 
-	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Item Mesh"));
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Mesh->SetCollisionObjectType(ECC_ItemDrop);
-	Mesh->SetupAttachment(RootComponent);
+	MeshRoot = CreateDefaultSubobject<USceneComponent>(TEXT("Mesh Root"));
+	MeshRoot->SetupAttachment(RootComponent);
 
 	SpinRate = 15.f;
 	BobRate = 2.5f;
@@ -59,18 +58,10 @@ void AItemPickupBase::Tick(float DeltaTime)
 		// Bobbing calculations
 		BobProgress += DeltaTime * BobRate;
 		if(BobProgress >= Loop) BobProgress -= Loop;
-		Mesh->AddRelativeLocation({0.f, 0.f, FMath::Sin(BobProgress) * BobAmount});
-		Mesh->AddLocalRotation({0.f, DeltaTime * SpinRate, 0.f});
+		MeshRoot->AddRelativeLocation({0.f, 0.f, FMath::Sin(BobProgress) * BobAmount});
+		MeshRoot->AddLocalRotation({0.f, DeltaTime * SpinRate, 0.f});
 	}
 }
-
-void AItemPickupBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME_CONDITION_NOTIFY(AItemPickupBase, SkeletalMesh, COND_None, REPNOTIFY_OnChanged);
-}
-
 
 void AItemPickupBase::SphereHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {

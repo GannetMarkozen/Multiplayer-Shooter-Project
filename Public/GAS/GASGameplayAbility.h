@@ -145,21 +145,6 @@ protected:
 	// Abilities added when this ability is given and removed when this ability is removes
 	UPROPERTY(EditDefaultsOnly, Category = "GAS|Ability")
 	TArray<TSubclassOf<class UGASGameplayAbility>> OwnedAbilities;
-	
-	// Cooldown overrides
-	/*
-	virtual const FGameplayTagContainer* GetCooldownTags() const override;
-	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const override;
-
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
-	FScalableFloat CooldownDuration;
-
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
-	FGameplayTagContainer CooldownTags;
-
-	// Temp only
-	UPROPERTY(Transient)
-	FGameplayTagContainer TempCooldownTags;*/
 };
 
 UCLASS()

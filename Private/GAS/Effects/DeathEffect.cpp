@@ -5,14 +5,14 @@
 
 #include "Character/ShooterCharacter.h"
 #include "GAS/GASAbilitySystemComponent.h"
-#include "GAS/GASAttributeSet.h"
+#include "GAS/AttributeSets/CharacterAttributeSet.h"
 
 UDeathEffect::UDeathEffect()
 {
 	DurationPolicy = EGameplayEffectDurationType::Infinite;
 	
 	FGameplayModifierInfo Modifier;
-	Modifier.Attribute = UGASAttributeSet::GetHealthAttribute();
+	Modifier.Attribute = UCharacterAttributeSet::GetHealthAttribute();
 	Modifier.ModifierOp = EGameplayModOp::Override;
 	Modifier.Magnitude = 0.f;
 	Modifiers.Add(Modifier);

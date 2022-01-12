@@ -5,7 +5,7 @@
 
 #include "Character/ShooterCharacter.h"
 #include "GAS/ExtendedTypes.h"
-#include "GAS/GASAttributeSet.h"
+#include "GAS/AttributeSets/CharacterAttributeSet.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
 
@@ -17,9 +17,9 @@ struct DamageStatics
 
 	DamageStatics()
 	{
-		DEFINE_ATTRIBUTE_CAPTUREDEF(UGASAttributeSet, BulletResistance, Target, false);
-		DEFINE_ATTRIBUTE_CAPTUREDEF(UGASAttributeSet, ExplosionResistance, Target, false);
-		DEFINE_ATTRIBUTE_CAPTUREDEF(UGASAttributeSet, Health, Target, false);
+		DEFINE_ATTRIBUTE_CAPTUREDEF(UCharacterAttributeSet, BulletResistance, Target, false);
+		DEFINE_ATTRIBUTE_CAPTUREDEF(UCharacterAttributeSet, ExplosionResistance, Target, false);
+		DEFINE_ATTRIBUTE_CAPTUREDEF(UCharacterAttributeSet, Health, Target, false);
 	}
 };
 
@@ -79,7 +79,7 @@ void UDamageExecutionCalculation::Execute_Implementation(const FGameplayEffectCu
 	// Set effect context target to the affected actor for gameplay cues
 	((FGameplayEffectContextExtended*)ExecutionParams.GetOwningSpec().GetEffectContext().Get())->SetTarget(ExecutionParams.GetTargetAbilitySystemComponent()->GetOwner());
 	if(Damage > 0.f)
-		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(UGASAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, -Damage));
+		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(UCharacterAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, -Damage));
 }
 
 float UDamageExecutionCalculation::CalculateBaseDamage(const FGameplayEffectCustomExecutionParameters& ExecutionParams, const FAggregatorEvaluateParameters& EvaluationParams) const

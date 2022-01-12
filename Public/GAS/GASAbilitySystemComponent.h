@@ -155,6 +155,30 @@ public:
 	// Unbinds all bindings from this object associated with the attribute
 	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Object", AutoCreateRefTerm = "Attribute"), Category = "GAS")
 	void UnbindAttributeChanged(class UObject* Object, const FGameplayAttribute& Attribute);
+
+	// Returns an attribute if one is found
+	FGameplayAttributeData* FindAttributeData(const FGameplayAttribute& Attribute) const;
+
+	UFUNCTION(BlueprintPure, Meta = (AutoCreateRefTerm = "Attribute, FailAttribute", HidePin = "FailAttribute", DisplayName = "Find Attribute Data"), Category = "GAS")
+	FORCEINLINE FGameplayAttributeData& FindAttributeDataRef(const FGameplayAttribute& Attribute, bool& Found, FGameplayAttributeData& FailAttribute) const
+	{
+		if(FGameplayAttributeData* Data = FindAttributeData(Attribute))
+		{
+			Found = true;
+			return *Data;
+		}
+		
+		Found = false;
+		return FailAttribute;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "GAS")
+	FORCEINLINE class UGASGameplayAbility* GetAbilityFromHandle(const FGameplayAbilitySpecHandle& Handle)
+	{
+		if(const FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Handle))
+			return (UGASGameplayAbility*)(Spec->Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::NonInstanced ? Spec->Ability : Spec->GetPrimaryInstance());
+		return nullptr;
+	}
 	
 protected:
 	virtual void AbilityLocalInputPressed(int32 InputID) override;

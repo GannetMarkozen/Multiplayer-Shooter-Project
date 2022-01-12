@@ -13,6 +13,11 @@
 AWeaponPickup::AWeaponPickup()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	
+	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Item Mesh"));
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mesh->SetCollisionObjectType(ECC_ItemDrop);
+	Mesh->SetupAttachment(MeshRoot);
 }
 
 AWeaponPickup* AWeaponPickup::SpawnWeaponPickup(AWeapon* Weapon, const FVector& Location, const FVector& OptionalVelocity)
@@ -40,8 +45,7 @@ void AWeaponPickup::BeginPlay()
 	if(WeaponClass && HasAuthority())
 	{
 		Weapon = GetWorld()->SpawnActor<AWeapon>(WeaponClass);
-		Weapon->GetFP_Mesh()->SetVisibility(false);
-		Weapon->GetTP_Mesh()->SetVisibility(false);
+		OnRep_Weapon();
 	}
 }
 
@@ -49,6 +53,7 @@ void AWeaponPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(AWeaponPickup, SkeletalMesh);
 	DOREPLIFETIME(AWeaponPickup, Weapon);
 }
 
@@ -60,6 +65,15 @@ void AWeaponPickup::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 	if(PropertyChangedEvent.Property == FindFProperty<FProperty>(StaticClass(), GET_MEMBER_NAME_CHECKED(AWeaponPickup, WeaponClass)))
 	{
 		Mesh->SetSkeletalMesh(WeaponClass ? WeaponClass.GetDefaultObject()->GetTP_Mesh()->SkeletalMesh : nullptr);
+	}
+}
+
+void AWeaponPickup::OnRep_Weapon_Implementation()
+{
+	if(Weapon)
+	{
+		Weapon->GetFP_Mesh()->SetVisibility(false);
+		Weapon->GetTP_Mesh()->SetVisibility(false);
 	}
 }
 
@@ -84,7 +98,7 @@ void AWeaponPickup::Inspect_Implementation(AShooterCharacter* Interactor)
 
 	// Sets HUD inspect text
 	if(Interactor && Weapon)
-		Interactor->HUDInspectTextDelegate.Broadcast(FText::FromString("Press E to equip " + Weapon->GetItemName().ToString()));
+		Interactor->SetInspectText(FText::FromString("Press E to equip " + Weapon->GetItemName().ToString()));
 }
 
 void AWeaponPickup::EndInspect_Implementation(AShooterCharacter* Interactor)
@@ -94,7 +108,7 @@ void AWeaponPickup::EndInspect_Implementation(AShooterCharacter* Interactor)
 
 	// Clears HUD inspect text
 	if(Interactor && Weapon)
-		Interactor->HUDInspectTextDelegate.Broadcast(FText());
+		Interactor->SetInspectText(FText());
 }
 
 

@@ -9,14 +9,13 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GAS/ExtendedTypes.h"
-#include "GAS/GASAttributeSet.h"
+#include "GAS/AttributeSets/CharacterAttributeSet.h"
+#include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "GAS/GASGameplayAbility.h"
 #include "GAS/Abilities/Weapons/Weapon.h"
 #include "GAS/Effects/DeathEffect.h"
 #include "Net/UnrealNetwork.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
-#include "GAS/Abilities/DropItemAbility.h"
-#include "GAS/Abilities/EquipAbility.h"
 
 
 AShooterCharacter::AShooterCharacter()
@@ -37,7 +36,8 @@ AShooterCharacter::AShooterCharacter()
 	ASC->SetIsReplicated(true);
 	ASC->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
-	Attributes = CreateDefaultSubobject<UGASAttributeSet>(TEXT("Attributes"));
+	CharacterSet = CreateDefaultSubobject<UCharacterAttributeSet>(TEXT("Character Attribute Set"));
+	AmmoSet = CreateDefaultSubobject<UAmmoAttributeSet>(TEXT("Ammo Attribute Set"));
 
 	Inventory = CreateDefaultSubobject<UCharacterInventoryComponent>(TEXT("Inventory Component"));
 
@@ -49,7 +49,7 @@ void AShooterCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	if(HasAuthority())
-		ASC->GetGameplayAttributeValueChangeDelegate(UGASAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UCharacterAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
 }
 
 
@@ -147,7 +147,6 @@ void AShooterCharacter::InitializeAbilities()
 	PostInitializeAbilities();
 }
 
-
 void AShooterCharacter::InitializeAttributes()
 {
 	for(const TSubclassOf<class UGameplayEffect>& DefaultEffect : DefaultEffects)
@@ -170,13 +169,14 @@ void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
 {
 	if(LastWeapon)
 	{
-		LastWeapon->GetFP_Mesh()->SetVisibility(false);
-		LastWeapon->GetTP_Mesh()->SetVisibility(false);
+		LastWeapon->SetVisibility(false);
+		
+		if(HasAuthority())
+			Inventory->RemoveAbilities();
 	}
 	if(CurrentWeapon)
 	{
-		CurrentWeapon->GetFP_Mesh()->SetVisibility(true);
-		CurrentWeapon->GetTP_Mesh()->SetVisibility(true);
+		CurrentWeapon->SetVisibility(true);
 
 		// Play third person equip montage to all instances
 		if(UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -188,6 +188,9 @@ void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
 			if(UAnimInstance* AnimInstance = GetFP_Mesh()->GetAnimInstance())
 				if(UAnimMontage* Montage = CurrentWeapon->GetFP_EquipMontage())
 					AnimInstance->Montage_Play(Montage);
+
+		if(HasAuthority())
+			Inventory->GiveAbilities(CurrentWeapon);
 	}
 	
 	ChangedWeaponsDelegate.Broadcast(CurrentWeapon, LastWeapon);
@@ -216,6 +219,7 @@ void AShooterCharacter::HealthChanged(const FOnAttributeChangeData& Data)
 
 void AShooterCharacter::Server_Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec)
 {// Set is dead to true to replicate death to clients and call death func server-side as well
+	
 	Death(Magnitude, Spec);
 	Multi_Death(Magnitude, Spec.IsValid() ? *Spec.Data.Get() : FGameplayEffectSpec());
 }
