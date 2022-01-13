@@ -35,6 +35,7 @@ void UDropItemAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 		return;
 	}
+	PRINT(TEXT("Dropping Item %s"), *INVENTORY->GetCurrentWeapon()->GetName());
 	
 	const FVector& ForwardVector = CHARACTER->GetViewRotation().Vector();
 	const FVector& Location = CHARACTER->GetCamera()->GetComponentLocation() + ForwardVector * DropSpawnOffset;

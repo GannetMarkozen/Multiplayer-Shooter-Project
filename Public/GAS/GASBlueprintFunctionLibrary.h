@@ -294,6 +294,9 @@ public:
 		return CC != ECC_WorldDynamic && CC != ECC_WorldStatic && CC != ECC_ItemDrop && Component->IsSimulatingPhysics(BoneName);
 	}
 
+	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Make Runtime Gameplay Effect With Override Float Value", AutoCreateRefTerm = "Attribute"), Category = "GAS")
+	static const FORCEINLINE FGameplayEffectSpec& MakeRuntimeGEWithOverrideFloatValue(const FGameplayAttribute& Attribute, const float Value = 0.f);
+
 	// Calculates the damage using the instigator's equipped weapon or base damage set by caller magnitude. Display damage only works if instigator is an AShooterCharacter
 	UFUNCTION(BlueprintCallable, Meta = (DefaultToSelf = "Target"), Category = "GAS")
 	static int32 CalculateDamage(class AActor* Target, class AActor* Instigator, const FGameplayEffectSpecHandle& Spec, const EDisplayDamage DisplayDamage = EDisplayDamage::None);

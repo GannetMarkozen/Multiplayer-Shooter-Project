@@ -50,6 +50,14 @@ void AShooterCharacter::BeginPlay()
 
 	if(HasAuthority())
 		ASC->GetGameplayAttributeValueChangeDelegate(UCharacterAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
+
+	// TEMP
+	const auto& RifleAmmoChanged = [this](const FOnAttributeChangeData& Data)->void{ PRINT(TEXT("Rifle Ammo == %i"), (int32)Data.NewValue); };
+	if(HasAuthority())
+		ASC->GetGameplayAttributeValueChangeDelegate(UAmmoAttributeSet::GetRifleAmmoAttribute()).AddLambda(RifleAmmoChanged);
+
+	const auto& RifleAttributeChanged = [=](const FOnAttributeChangeData& Data)->void{ PRINT(TEXT("%s: Rifle Attribute Value == %i"), *AUTHTOSTRING(HasAuthority()), (int32)Data.NewValue); };
+	ASC->GetGameplayAttributeValueChangeDelegate(UAmmoAttributeSet::GetRifleAmmoAttribute()).AddLambda(RifleAttributeChanged);
 }
 
 

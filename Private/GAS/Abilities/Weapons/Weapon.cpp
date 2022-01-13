@@ -44,6 +44,13 @@ AWeapon::AWeapon()
 	DamageEffect = UDamageEffect::StaticClass();
 }
 
+void AWeapon::BeginPlay()
+{
+	Super::BeginPlay();
+	
+}
+
+
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -75,6 +82,10 @@ void AWeapon::OnEquipped_Implementation(UCharacterInventoryComponent* Inventory)
 	// Only runs on server
 	GiveAbilities();
 
+	// Sometimes current owner isn't initialized yet at this point for some reason
+	if(!CurrentOwner)
+		CurrentOwner = CastChecked<AShooterCharacter>(Inventory->GetOwner());
+	
 	if(TP_EquipMontage)
 		if(UAnimInstance* AnimInstance = CurrentOwner->GetMesh()->GetAnimInstance())
 			AnimInstance->Montage_Play(TP_EquipMontage);
@@ -115,9 +126,6 @@ void AWeapon::RemoveAbilities()
 
 
 
-
-
-
 void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* OldInventory)
 {
 	if(CurrentInventory)
@@ -126,6 +134,7 @@ void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* O
 		CurrentOwner = Cast<AShooterCharacter>(CurrentInventory->GetOwner());
 		if(CurrentOwner)
 		{
+			// Init vars
 			CurrentCharacterInventory = CurrentOwner->GetCharacterInventory();
 			CurrentASC = CurrentOwner->GetASC();
 			
@@ -163,75 +172,16 @@ void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* O
 		CurrentOwner = nullptr;
 		CurrentCharacterInventory = nullptr;
 		CurrentASC = nullptr;
+		SetOwner(nullptr);
 	}
 }
-
-
-/*
-void AWeapon::OnObtained_Implementation(UInventoryComponent* Inventory)
-{// Server only
-	CurrentInventory = Inventory;
-	AShooterCharacter* NewOwner = CastChecked<AShooterCharacter>(CurrentInventory ? CurrentInventory->GetOwner() : nullptr);
-	if(NewOwner != CurrentOwner)
-	{
-		// Set new owner and call onrep func
-		const AShooterCharacter* OldOwner = CurrentOwner;
-		CurrentOwner = NewOwner;
-		OnRep_CurrentOwner(OldOwner);
-	}
-}
-
-void AWeapon::OnRemoved_Implementation(UInventoryComponent* Inventory)
-{// Server only
-	const AShooterCharacter* OldOwner = CurrentOwner;
-	CurrentInventory = nullptr;
-	CurrentOwner = nullptr;
-	OnRep_CurrentOwner(OldOwner);
-}
-
-void AWeapon::OnRep_CurrentOwner_Implementation(const AShooterCharacter* OldOwner)
-{// All instances
-	if(CurrentOwner)
-	{
-		// Init variables
-		CurrentCharacterInventory = CurrentOwner->GetCharacterInventory();
-		CurrentASC = CurrentOwner->GetASC();
-		
-		// Attach weapon mesh to character
-		FP_Mesh->AttachToComponent(CurrentOwner->GetFP_Mesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("WeaponPoint"));
-		TP_Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("WeaponPoint"));
-
-		// Set weapon mesh orientation
-		if(FP_Mesh->SkeletalMesh && CurrentOwner->GetItemMeshDataTable())
-		{
-			if(const FMeshTableRow* MeshRow = CurrentOwner->GetItemMeshDataTable()->FindRow<FMeshTableRow>(FP_Mesh->SkeletalMesh->GetFName(), "MeshTableRow"))
-			{
-				const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
-				const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
-				FP_Mesh->SetRelativeTransform(DefObj->FP_Mesh->GetRelativeTransform() * RelativeTransform);
-				TP_Mesh->SetRelativeTransform(DefObj->TP_Mesh->GetRelativeTransform() * RelativeTransform);
-			}
-		}
-
-		if(AmmoAttribute.IsValid())
-			CurrentASC->GetGameplayAttributeValueChangeDelegate(AmmoAttribute).AddUObject(this, &AWeapon::ReserveAmmoUpdated);
-	}
-	else
-	{
-		if(AmmoAttribute.IsValid() && CurrentASC)
-			CurrentASC->GetGameplayAttributeValueChangeDelegate(AmmoAttribute).RemoveAll(this);
-		
-		CurrentCharacterInventory = nullptr;
-		CurrentASC = nullptr;
-	}
-}*/
 
 
 void AWeapon::OnFire_Implementation()
 {
 	SetAmmo(Ammo - 1);
-	//if(CurrentOwner->IsLocallyControlled())
-	//CurrentASC->AddLooseGameplayTagForDurationSingle(TAG("WeaponState.Firing"), RateOfFire);
+
+	CurrentASC->AddLooseGameplayTagForDurationSingle(TAG("WeaponState.Firing"), RateOfFire);
 }
 
 FGameplayAttributeData* AWeapon::GetAmmoAttributeData() const
@@ -243,8 +193,21 @@ FGameplayAttributeData* AWeapon::GetAmmoAttributeData() const
 
 void AWeapon::SetReserveAmmo(const int32 NewReserveAmmo)
 {
-	if(AmmoAttribute.IsValid() && CurrentASC)
-		GetAmmoAttributeData()->SetCurrentValue(NewReserveAmmo);
+	if(!AmmoAttribute.IsValid() || !CurrentASC) return;
+	
+	// Create runtime GE to override reserve ammo
+	UGameplayEffect* GameplayEffect = NewObject<UGameplayEffect>(GetTransientPackage(), TEXT("RuntimeInstantGE"));
+	GameplayEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
+
+	const int32 Idx = GameplayEffect->Modifiers.Num();
+	GameplayEffect->Modifiers.SetNum(Idx + 1);
+	FGameplayModifierInfo& ModifierInfo = GameplayEffect->Modifiers[Idx];
+	ModifierInfo.Attribute = AmmoAttribute;
+	ModifierInfo.ModifierMagnitude = FScalableFloat(NewReserveAmmo);
+	ModifierInfo.ModifierOp = EGameplayModOp::Override;
+
+	const FGameplayEffectSpec* Spec = new FGameplayEffectSpec(GameplayEffect, {}, 1.f);
+	CurrentASC->ApplyGameplayEffectSpecToSelf(*Spec);
 }
 
 int32 AWeapon::GetReserveAmmo() const

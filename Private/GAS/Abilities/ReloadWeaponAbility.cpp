@@ -48,7 +48,7 @@ void UReloadWeaponAbility::AmmoChanged_Implementation(const int32 Ammo)
 
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
-	const AWeapon* Current = static_cast<const FGameplayAbilityActorInfoExtended*>(ActorInfo)->Inventory.Get()->GetCurrentWeapon();
+	const AWeapon* Current = CURRENTWEAPON;
 	if(ActorInfo->IsNetAuthority())
 	{
 		if(!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags)) {PRINT(TEXT("Can Activate Ability"));}
@@ -63,7 +63,8 @@ bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle H
 void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-	
+
+	CurrentWeapon = CURRENTWEAPON;
 	if(HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
 	{// Init gameplay cue params
 		FGameplayCueParameters Params;
@@ -74,17 +75,17 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		// Add reloading tags on both server and client
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
-			if(CURRENTWEAPON->GetTP_EquipMontage())
+			if(CurrentWeapon->GetTP_EquipMontage())
 				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastReloadingCue, ActivationInfo.GetActivationPredictionKey(), Params);
 
 			// If server, add reload state and at the end call the callback delegate that sets the ammo
 			TDelegate<void(UGASAbilitySystemComponent*, const FGameplayTag&)> CallbackDelegate;
 			CallbackDelegate.BindUObject(this, &UReloadWeaponAbility::Server_SetAmmo);
-			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(ReloadStateTag, CURRENTWEAPON->GetReloadDuration() / PlayRate, &CallbackDelegate);
+			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(ReloadStateTag, CurrentWeapon->GetReloadDuration() / PlayRate, &CallbackDelegate);
 		}
 		else
 		{// If client, add reload state tag but do not set ammo
-			GET_ASC->AddLooseGameplayTagForDuration(ReloadStateTag, CURRENTWEAPON->GetReloadDuration() / PlayRate);
+			GET_ASC->AddLooseGameplayTagForDuration(ReloadStateTag, CurrentWeapon->GetReloadDuration() / PlayRate);
 		}
 		
 		if(ActorInfo->IsLocallyControlled())
@@ -109,10 +110,9 @@ void UReloadWeaponAbility::Server_SetAmmo(UGASAbilitySystemComponent* ASC, const
 void UReloadWeaponAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	Super::Client_PredictionFailed_Implementation(ActorInfo);
-	PRINTLINE;
 	
 	if(UAnimInstance* AnimInstance = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
-		AnimInstance->Montage_Stop(0.f, ActorInfo.Inventory.Get()->GetCurrentWeapon() ? ActorInfo.Inventory.Get()->GetCurrentWeapon()->GetFP_ReloadMontage() : nullptr);
+		AnimInstance->Montage_Stop(0.f, CurrentWeapon ? CurrentWeapon->GetFP_ReloadMontage() : nullptr);
 }
 
 void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -121,7 +121,7 @@ void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 	
 	if(bWasCancelled && !ActorInfo->IsNetAuthority())
 		if(UAnimInstance* AnimInstance = CHARACTER->GetFP_Mesh()->GetAnimInstance())
-			AnimInstance->Montage_Stop(0.f, INVENTORY->GetCurrentWeapon() ? INVENTORY->GetCurrentWeapon()->GetFP_ReloadMontage() : nullptr);
+			AnimInstance->Montage_Stop(0.f, CurrentWeapon ? CurrentWeapon->GetFP_ReloadMontage() : nullptr);
 }
 
 

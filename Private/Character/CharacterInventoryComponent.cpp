@@ -25,7 +25,10 @@ void UCharacterInventoryComponent::BeginPlay()
 	Super::BeginPlay();
 	OwningCharacter = CastChecked<AShooterCharacter>(GetOwner());
 	if(OwningCharacter->HasAuthority())
-		SetCurrentWeapon(0);
+	{
+		const auto& EquipDefault = [this]()->void{ SetCurrentWeapon(0); };
+		GetWorld()->GetTimerManager().SetTimerForNextTick(EquipDefault);
+	}
 }
 
 void UCharacterInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -91,8 +94,6 @@ void UCharacterInventoryComponent::CurrentWeaponChanged_Implementation(const AWe
 	// Init current index
 	const int32 Index = Weapons.Find(CurrentWeapon);
 	if(Index != INDEX_NONE) CurrentIndex = Index;
-
-	PRINT(TEXT("%s: CurrentWeapon == %s, CurrentIndex == %i"), *AUTHTOSTRING(GetOwner()->HasAuthority()), *FString(GetCurrentWeapon() ? GetCurrentWeapon()->GetName() : "NULL"), GetCurrentIndex());
 	
 	// Remove weapon state related gameplay tags
 	OwningCharacter->GetASC()->RemoveLooseGameplayTagChildren(TAG("WeaponState"));
@@ -101,7 +102,7 @@ void UCharacterInventoryComponent::CurrentWeaponChanged_Implementation(const AWe
 	CallOnUnEquipped(const_cast<AWeapon*>(OldWeapon), this);
 	CallOnEquipped(CurrentWeapon, this);
 
-	CurrentWeaponChangeDelegate.Broadcast(GetCurrentWeapon(), OldWeapon);
+	CurrentWeaponChangeDelegate.Broadcast(CurrentWeapon, OldWeapon);
 }
 
 

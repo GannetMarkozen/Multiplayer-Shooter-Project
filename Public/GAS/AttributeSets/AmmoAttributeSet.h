@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GAS/GASAttributeSet.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
+#include "MultiplayerShooter/MultiplayerShooter.h"
 #include "AmmoAttributeSet.generated.h"
 
 
@@ -28,6 +29,7 @@ public:
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	//virtual void Attribute
 	
 public:	
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_RifleAmmo, Category = "Attributes")

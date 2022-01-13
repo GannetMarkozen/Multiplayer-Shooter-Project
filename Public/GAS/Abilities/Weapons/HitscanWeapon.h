@@ -15,6 +15,7 @@ class MULTIPLAYERSHOOTER_API AHitscanWeapon : public AWeapon
 	GENERATED_BODY()
 public:
 	AHitscanWeapon();
+	
 protected:
 	// Curve float determining the damage at a given range in terms of a multiplier to the BaseDamage, 1 being full BaseDamage. Range of 1 == max range on the weapon
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|DamageCalculation")

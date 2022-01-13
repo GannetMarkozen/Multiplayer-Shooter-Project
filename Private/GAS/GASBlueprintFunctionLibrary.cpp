@@ -62,3 +62,20 @@ void UGASBlueprintFunctionLibrary::ApplyDamageKnockback(const FGameplayEffectCon
 		}
 	}
 }
+
+const FGameplayEffectSpec& UGASBlueprintFunctionLibrary::MakeRuntimeGEWithOverrideFloatValue(const FGameplayAttribute& Attribute, const float Value)
+{
+	// Create runtime GE to override reserve ammo
+	UGameplayEffect* GameplayEffect = NewObject<UGameplayEffect>(GetTransientPackage(), TEXT("RuntimeInstantGE"));
+	GameplayEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
+
+	const int32 Idx = GameplayEffect->Modifiers.Num();
+	GameplayEffect->Modifiers.SetNum(Idx + 1);
+	FGameplayModifierInfo& ModifierInfo = GameplayEffect->Modifiers[Idx];
+	ModifierInfo.Attribute = Attribute;
+	ModifierInfo.ModifierMagnitude = FScalableFloat(Value);
+	ModifierInfo.ModifierOp = EGameplayModOp::Override;
+
+	return *new FGameplayEffectSpec(GameplayEffect, {}, 1.f);
+}
+

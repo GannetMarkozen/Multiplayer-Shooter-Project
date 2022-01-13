@@ -6,6 +6,7 @@
 #include "Item.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
 #include "GAS/DamageInterface.h"
+#include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "Weapon.generated.h"
 
 USTRUCT(BlueprintType)
@@ -68,6 +69,7 @@ public:
 	AWeapon();
 
 protected:
+	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return BaseDamage; }
 
@@ -310,14 +312,23 @@ public:
 	// Should be overriden
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	bool CanFire() const;
-	virtual FORCEINLINE bool CanFire_Implementation() const { return !bUseAmmo || Ammo > 0; }
+	virtual FORCEINLINE bool CanFire_Implementation() const { return Ammo > 0; }
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void OnFire();
 	virtual FORCEINLINE void OnFire_Implementation();
 
-	UPROPERTY(EditDefaultsOnly)
-	bool bUseAmmo = false;
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void EndFire();
+	virtual FORCEINLINE void EndFire_Implementation() {}
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void OnSecondaryFire();
+	virtual FORCEINLINE void OnSecondaryFire_Implementation() {}
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void EndSecondaryFire();
+	virtual void FORCEINLINE EndSecondaryFire_Implementation() {}
 
 	// Update ammo client-side with the amount server side when mis-predicting
 	// ammo consumption. Only call on server, obviously
@@ -361,4 +372,4 @@ protected:
 		OnRep_Ammo(OldValue);
 	}
 };  
- 
+

@@ -5,11 +5,12 @@
 
 #include "GAS/Abilities/HitscanAbility.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
+#include "GAS/Abilities/ReloadWeaponAbility.h"
 
 AHitscanWeapon::AHitscanWeapon()
 {
 	WeaponAbilities.Add(UHitscanAbility::StaticClass());
-	bUseAmmo = true;
+	WeaponAbilities.Add(UReloadWeaponAbility::StaticClass());
 }
 
 int32 AHitscanWeapon::CalculateDamage_Implementation(const AActor* Target, const FGameplayEffectSpecHandle& Spec) const
@@ -27,4 +28,3 @@ int32 AHitscanWeapon::CalculateDamage_Implementation(const AActor* Target, const
 	}
 	return 0;
 }
-
