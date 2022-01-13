@@ -85,7 +85,7 @@ void UDamageExecutionCalculation::Execute_Implementation(const FGameplayEffectCu
 float UDamageExecutionCalculation::CalculateBaseDamage(const FGameplayEffectCustomExecutionParameters& ExecutionParams, const FAggregatorEvaluateParameters& EvaluationParams) const
 {
 	float BaseDamage = IDamageCalculationInterface::Execute_CalculateDamage(
-		((FGameplayAbilityActorInfoExtended&)*ExecutionParams.GetOwningSpec().GetEffectContext().Get()->GetInstigatorAbilitySystemComponent()->AbilityActorInfo.Get()).Inventory.Get()->GetCurrent(),
+		((FGameplayAbilityActorInfoExtended&)*ExecutionParams.GetOwningSpec().GetEffectContext().Get()->GetInstigatorAbilitySystemComponent()->AbilityActorInfo.Get()).Inventory.Get()->GetCurrentWeapon(),
 		ExecutionParams.GetTargetAbilitySystemComponent()->GetOwner(), FGameplayEffectSpecHandle(new FGameplayEffectSpec(ExecutionParams.GetOwningSpec())));
 	if(BaseDamage <= 0.f) return 0.f;
 

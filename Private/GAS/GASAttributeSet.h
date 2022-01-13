@@ -22,7 +22,7 @@ public:
 	UFUNCTION(BlueprintPure, Meta = (AutoCreateRefTerm = "Attribute", DisplayName = "Find Attribute Data"), Category = "Set")
 	FORCEINLINE bool FindAttributeDataRef(const FGameplayAttribute& Attribute, FGameplayAttributeData& OutData)
 	{
-		if(FGameplayAttributeData* Data = FindAttributeData(Attribute))
+		if(const FGameplayAttributeData* Data = FindAttributeData(Attribute))
 		{
 			OutData = *Data;
 			return true;

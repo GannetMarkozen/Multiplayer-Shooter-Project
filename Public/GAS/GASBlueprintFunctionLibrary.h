@@ -302,3 +302,45 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GAS")
 	static void ApplyDamageKnockback(const FGameplayEffectContextHandle& Context, float Damage, float KnockbackMagnitude = 1.f);
 };
+
+UCLASS()
+class MULTIPLAYERSHOOTER_API UGASDebugFuncLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+public:
+	// Print = true to print on screen or false to log in debug log
+	UFUNCTION(BlueprintCallable, Category = "GAS|Debug")
+	static FORCEINLINE void PrintAllAbilities(const class UGASAbilitySystemComponent* ASC, const bool bPrint = false)
+	{
+		FString Message;
+		const TArray<FGameplayAbilitySpec>& Specs = ASC->GetActivatableAbilities();
+		for(int32 i = 0; i < Specs.Num(); i++)
+			if(Specs[i].Ability)
+				Message.Append(Specs[i].Ability->GetName() + ", ");
+		
+		if(bPrint)
+		{
+			PRINT(TEXT("Abilities == %s"), *Message);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Abilities == %s"), *Message);
+		}
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "GAS|Debug")
+	static FORCEINLINE void PrintDuplicateAbilities(const class UGASAbilitySystemComponent* ASC, const bool bPrint = false)
+	{
+		FString Message;
+		const TArray<FGameplayAbilitySpec>& Specs = ASC->GetActivatableAbilities();
+		TArray<UGameplayAbility*> Abilities;
+		for(const FGameplayAbilitySpec& Spec : Specs)
+		{
+			for(const UGameplayAbility* Ability : Abilities)
+				if(Ability->GetClass() == Spec.Ability->GetClass())
+					PRINT(TEXT("Dupe of ability %s"), *Spec.Ability->GetName());
+			
+			Abilities.Add(Spec.Ability);
+		}
+	}
+};

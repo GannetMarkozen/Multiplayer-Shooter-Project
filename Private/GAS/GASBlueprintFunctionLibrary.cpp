@@ -8,7 +8,7 @@ int32 UGASBlueprintFunctionLibrary::CalculateDamage(AActor* Target, AActor* Inst
 	if(!Spec.IsValid() || !Target || !Instigator) return 0;
 	if(const AShooterCharacter* InstigatorCharacter = Cast<AShooterCharacter>(Instigator))
 	{
-		if(const AWeapon* Weapon = InstigatorCharacter->GetCharacterInventory()->GetCurrent())
+		if(const AWeapon* Weapon = InstigatorCharacter->GetCharacterInventory()->GetCurrentWeapon())
 		{
 			const int32 Damage = IDamageCalculationInterface::Execute_CalculateDamage(Weapon, Target, Spec);
 			if(DisplayDamage != EDisplayDamage::None)

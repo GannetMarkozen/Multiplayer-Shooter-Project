@@ -8,8 +8,6 @@
 
 UEquipAbility::UEquipAbility()
 {
-	OwnedAbilities.Add(UEquipAbility_Server::StaticClass());
-	
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::NonInstanced;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 
@@ -30,23 +28,18 @@ bool UEquipAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 void UEquipAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	if(!IsCorrectNetActivation(ActivationInfo))
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
-		return;
-	}
 	
 	if(TriggerEventData && ActorInfo)
 	{
 		const int32 Index = TriggerEventData->EventMagnitude;
+		PRINT(TEXT("%s: Equipping %i"), *AUTHTOSTRING(ActorInfo->IsNetAuthority()), Index);
 		if(INVENTORY->GetWeapons().IsValidIndex(Index))
 		{// If valid index, equip
-			INVENTORY->SetCurrentIndex(Index);
+			//INVENTORY->SetCurrentWeapon(Index);
 			AWeapon* NewWeapon = INVENTORY->GetWeapons()[Index];
 			if(NewWeapon) // Add equipping loose gameplay tags
 			{
-				if(NewWeapon == CHARACTER->GetCurrentWeapon())
+				if(NewWeapon == INVENTORY->GetCurrentWeapon())
 				{// If attempting to equip the current weapon, return
 					EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 					return;
@@ -54,25 +47,25 @@ void UEquipAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 				GET_ASC->AddLooseGameplayTagForDurationSingle(TAG("Status.State.Equipping"), NewWeapon->GetWeaponSwapDuration());
 			}
 			
-			Equip(NewWeapon, INVENTORY->GetCurrent(), *(FGameplayAbilityActorInfoExtended*)ActorInfo);
+			Equip(Index, *(FGameplayAbilityActorInfoExtended*)ActorInfo);
 			EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 		}
 		else
 		{// If invalid index, equip nothing
-			Equip(nullptr, INVENTORY->GetCurrent(), *(FGameplayAbilityActorInfoExtended*)ActorInfo);
+			Equip(INDEX_NONE, *(FGameplayAbilityActorInfoExtended*)ActorInfo);
 			EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 		}
 	}
 	else EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 }
 
-void UEquipAbility::Equip_Implementation(AWeapon* NewWeapon, AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo)
+void UEquipAbility::Equip_Implementation(const int32 Index, const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	// Remove any tags related to weapon state
 	ActorInfo.ASC.Get()->RemoveLooseGameplayTagChildren(TAG("WeaponState"));
 
 	// Set current weapon
-	ActorInfo.Character.Get()->SetCurrentWeapon(NewWeapon);
+	ActorInfo.Inventory.Get()->SetCurrentWeapon(Index);
 	/*
 	if(OldWeapon)
 	{
@@ -95,10 +88,11 @@ void UEquipAbility::Equip_Implementation(AWeapon* NewWeapon, AWeapon* OldWeapon,
 void UEquipAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	Super::Client_PredictionFailed_Implementation(ActorInfo);
-	
+
+	PRINTLINE;
 	// Sets current equipped weapon to last equipped index and stops all anim montages
-	ActorInfo.Inventory.Get()->SetCurrentIndex(ActorInfo.Inventory.Get()->GetLastIndex());
-	Equip(ActorInfo.Inventory.Get()->GetCurrent(), ActorInfo.Inventory.Get()->GetWeapons()[ActorInfo.Inventory.Get()->GetLastIndex()], ActorInfo);
+	//ActorInfo.Inventory.Get()->SetCurrentIndex(ActorInfo.Inventory.Get()->GetLastIndex());
+	Equip(ActorInfo.Inventory.Get()->GetLastIndex(), ActorInfo);
 	if(UAnimInstance* Anim = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
 		Anim->Montage_Stop(0.f);
 }

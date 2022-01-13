@@ -26,7 +26,7 @@ void UReloadWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorI
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
 
-	CurrentWeapon = CHARACTER->GetCurrentWeapon();
+	CurrentWeapon = CURRENTWEAPON;
 	if(bReloadOnEnd && ActorInfo->IsNetAuthority())
 		CurrentWeapon->AmmoDelegate.AddDynamic(this, &UReloadWeaponAbility::AmmoChanged);
 }
@@ -48,7 +48,14 @@ void UReloadWeaponAbility::AmmoChanged_Implementation(const int32 Ammo)
 
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
-	const AWeapon* Current = CHARACTER->GetCurrentWeapon();
+	const AWeapon* Current = static_cast<const FGameplayAbilityActorInfoExtended*>(ActorInfo)->Inventory.Get()->GetCurrentWeapon();
+	if(ActorInfo->IsNetAuthority())
+	{
+		if(!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags)) {PRINT(TEXT("Can Activate Ability"));}
+		else if(!Current) {PRINT(TEXT("Current"));}
+		else if(!(Current->GetAmmo() < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->GetAmmo())) {PRINT(TEXT("Ammo == %i"), Current->GetAmmo());}
+		else if(!(Current->GetReserveAmmo() > 0)) {PRINT(TEXT("Reserve Ammo"));}
+	}
 	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && Current && Current->GetAmmo() < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->GetAmmo() && Current->GetReserveAmmo() > 0;
 }
 
@@ -67,17 +74,17 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		// Add reloading tags on both server and client
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
-			if(CHARACTER->GetCurrentWeapon()->GetTP_EquipMontage())
+			if(CURRENTWEAPON->GetTP_EquipMontage())
 				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastReloadingCue, ActivationInfo.GetActivationPredictionKey(), Params);
 
 			// If server, add reload state and at the end call the callback delegate that sets the ammo
 			TDelegate<void(UGASAbilitySystemComponent*, const FGameplayTag&)> CallbackDelegate;
 			CallbackDelegate.BindUObject(this, &UReloadWeaponAbility::Server_SetAmmo);
-			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(ReloadStateTag, CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate, &CallbackDelegate);
+			GET_ASC->AddLooseGameplayTagForDurationSingle_Static(ReloadStateTag, CURRENTWEAPON->GetReloadDuration() / PlayRate, &CallbackDelegate);
 		}
 		else
 		{// If client, add reload state tag but do not set ammo
-			GET_ASC->AddLooseGameplayTagForDuration(ReloadStateTag, CHARACTER->GetCurrentWeapon()->GetReloadDuration() / PlayRate);
+			GET_ASC->AddLooseGameplayTagForDuration(ReloadStateTag, CURRENTWEAPON->GetReloadDuration() / PlayRate);
 		}
 		
 		if(ActorInfo->IsLocallyControlled())
@@ -102,9 +109,10 @@ void UReloadWeaponAbility::Server_SetAmmo(UGASAbilitySystemComponent* ASC, const
 void UReloadWeaponAbility::Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo)
 {
 	Super::Client_PredictionFailed_Implementation(ActorInfo);
+	PRINTLINE;
 	
 	if(UAnimInstance* AnimInstance = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
-		AnimInstance->Montage_Stop(0.f, ActorInfo.Inventory.Get()->GetCurrent() ? ActorInfo.Inventory.Get()->GetCurrent()->GetFP_ReloadMontage() : nullptr);
+		AnimInstance->Montage_Stop(0.f, ActorInfo.Inventory.Get()->GetCurrentWeapon() ? ActorInfo.Inventory.Get()->GetCurrentWeapon()->GetFP_ReloadMontage() : nullptr);
 }
 
 void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -113,7 +121,7 @@ void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 	
 	if(bWasCancelled && !ActorInfo->IsNetAuthority())
 		if(UAnimInstance* AnimInstance = CHARACTER->GetFP_Mesh()->GetAnimInstance())
-			AnimInstance->Montage_Stop(0.f, INVENTORY->GetCurrent() ? INVENTORY->GetCurrent()->GetFP_ReloadMontage() : nullptr);
+			AnimInstance->Montage_Stop(0.f, INVENTORY->GetCurrentWeapon() ? INVENTORY->GetCurrentWeapon()->GetFP_ReloadMontage() : nullptr);
 }
 
 

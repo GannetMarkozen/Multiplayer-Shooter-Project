@@ -83,7 +83,7 @@ void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
-	DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, CurrentWeapon, COND_None, REPNOTIFY_OnChanged);
+	//DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, CurrentWeapon, COND_None, REPNOTIFY_OnChanged);
 }
 
 void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -164,7 +164,7 @@ void AShooterCharacter::InitializeAttributes()
 		}
 	}
 }
-
+/*
 void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
 {
 	if(LastWeapon)
@@ -194,7 +194,7 @@ void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
 	}
 	
 	ChangedWeaponsDelegate.Broadcast(CurrentWeapon, LastWeapon);
-}
+}*/
 
 
 void AShooterCharacter::Die(const FGameplayEffectSpecHandle& OptionalSpec)
@@ -226,17 +226,6 @@ void AShooterCharacter::Server_Death_Implementation(const float Magnitude, const
 
 void AShooterCharacter::Death_Implementation(const float Magnitude, const FGameplayEffectSpecHandle& Spec)
 {// Called on all instances
-	/*
-	if(DeathEffectClass && !ASC->HasMatchingGameplayTag(TAG("Status.State.Dead")))
-	{
-		const FGameplayEffectSpecHandle& DeathSpec = ASC->MakeOutgoingSpec(DeathEffectClass, 1.f, ASC->MakeEffectContextExtended(this));
-		if(DeathSpec.IsValid())
-		{
-			ASC->ApplyGameplayEffectSpecToSelf(*DeathSpec.Data.Get());
-			PRINT(TEXT("%s: Applied death effect"), *AUTHTOSTRING(HasAuthority()));
-		}
-	}*/
-	
 	ASC->AddLooseGameplayTag(TAG("Status.State.Dead"));
 	// Start ragdolling
 	Ragdoll(Magnitude, Spec);
@@ -253,13 +242,14 @@ void AShooterCharacter::Ragdoll_Implementation(const float Magnitude, const FGam
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 
 	// Drop current weapon
+	/*
 	if(CurrentWeapon)
 	{
 		CurrentWeapon->GetTP_Mesh()->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		CurrentWeapon->GetTP_Mesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		CurrentWeapon->GetTP_Mesh()->SetSimulatePhysics(true);
 		CurrentWeapon->GetTP_Mesh()->SetAllPhysicsLinearVelocity(GetCharacterMovement()->Velocity);
-	}
+	}*/
 
 	// If damage spec is valid, apply velocities associated with damage
 	if(Spec.IsValid() && Spec.Data.Get()->GetEffectContext().IsValid())

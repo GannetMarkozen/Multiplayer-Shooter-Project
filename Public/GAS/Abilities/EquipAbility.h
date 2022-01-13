@@ -21,34 +21,11 @@ protected:
 	virtual void Client_PredictionFailed_Implementation(const FGameplayAbilityActorInfoExtended& ActorInfo) override;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "GAS|Ability")
-	void Equip(class AWeapon* NewWeapon, class AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo);
-	void Equip_Implementation(class AWeapon* NewWeapon, class AWeapon* OldWeapon, const FGameplayAbilityActorInfoExtended& ActorInfo);
-
-	virtual FORCEINLINE bool IsCorrectNetActivation(const FGameplayAbilityActivationInfo& ActivationInfo) const
-	{
-		return ActivationInfo.GetActivationPredictionKey().IsValidForMorePrediction();
-	}
-
+	void Equip(const int32 Index, const FGameplayAbilityActorInfoExtended& ActorInfo);
+	void Equip_Implementation(const int32 Index, const FGameplayAbilityActorInfoExtended& ActorInfo);
+	
 public:
 	// Returns num ability activations
 	UFUNCTION(BlueprintCallable, Category = "GAS|Ability")
 	static int32 EquipWeapon(class UAbilitySystemComponent* ASC, int32 Index);
-};
-
-UCLASS()
-class MULTIPLAYERSHOOTER_API UEquipAbility_Server : public UEquipAbility
-{
-	GENERATED_BODY()
-public:
-	UEquipAbility_Server()
-	{
-		OwnedAbilities.Empty();
-		
-		NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
-	}
-	
-	virtual FORCEINLINE bool IsCorrectNetActivation(const FGameplayAbilityActivationInfo& ActivationInfo) const override
-	{
-		return !Super::IsCorrectNetActivation(ActivationInfo);
-	}
 };

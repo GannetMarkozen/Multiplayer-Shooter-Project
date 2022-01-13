@@ -24,15 +24,6 @@ protected:
 	virtual class UInventoryComponent* GetInventory_Implementation() = 0;
 };
 
-USTRUCT(BlueprintType)
-struct FWeaponsContainer
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Something")
-	TArray<AWeapon*> Weapons;
-};
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FUpdateInventory);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))

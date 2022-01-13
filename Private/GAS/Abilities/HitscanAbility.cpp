@@ -38,7 +38,7 @@ void UHitscanAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, 
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
 
-	if(const AWeapon* Weapon = INVENTORY->GetCurrent())
+	if(const AWeapon* Weapon = INVENTORY->GetCurrentWeapon())
 	{
 		LineTraceObject.Get()->Range = Weapon->GetRange();
 	}
@@ -52,7 +52,7 @@ void UHitscanAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, 
 
 bool UHitscanAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {// Must be able to fire to activate ability
-	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && GetInventory()->GetCurrent() && GetInventory()->GetCurrent()->CanFire();
+	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && GetInventory()->GetCurrentWeapon() && GetInventory()->GetCurrentWeapon()->CanFire();
 }
 
 
@@ -60,8 +60,10 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	const AWeapon* CurrentWeapon = CURRENTWEAPON;
+	
 	// Locally add firing tag
-	GET_ASC->AddLooseGameplayTagForDurationSingle(FiringStateTag, CHARACTER->GetCurrentWeapon()->GetRateOfFire());
+	GET_ASC->AddLooseGameplayTagForDurationSingle(FiringStateTag, CurrentWeapon->GetRateOfFire());
 
 	if(ActorInfo->IsLocallyControlled())
 	{// If locally controlled, play local firing animation
@@ -73,7 +75,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 	}
 
 	TArray<FHitResult> Hits;
-	for(int32 i = 0; i < CHARACTER->GetCurrentWeapon()->GetNumShots(); i++)
+	for(int32 i = 0; i < CurrentWeapon->GetNumShots(); i++)
 	{
 		Hits.Add(LineTraceObject->DoLineTrace(GetCharacter()->GetCamera()->GetComponentLocation(), GetCharacter()->GetCamera()->GetComponentRotation(), {GetCharacter()}, 1.f));
 	}
@@ -91,7 +93,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 		{// Replicate target data if server, otherwise simply call target data received
 			const FPredictionKey& Key = ActivationInfo.GetActivationPredictionKey();
 			GetASC()->ServerSetReplicatedTargetData(Handle, Key, DataHandle, FGameplayTag(), Key);
-			GetInventory()->GetCurrent()->OnFire();
+			GetInventory()->GetCurrentWeapon()->OnFire();
 		}
 		else
 		{
@@ -102,7 +104,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 	{// If no valid hits, RPC nothing. If server, simply call event received
 		const FPredictionKey& Key = ActivationInfo.GetActivationPredictionKey();
 		GetASC()->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Handle, Key, Key);
-		GetInventory()->GetCurrent()->OnFire();
+		GetInventory()->GetCurrentWeapon()->OnFire();
 	}
 	else
 	{
@@ -116,12 +118,12 @@ void UHitscanAbility::Server_ReceivedEvent_Implementation() const
 {// If failed prediction, return and update client predicted ammo
 	if(!CurrentActorInfo->IsLocallyControlled() && !CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
 	{
-		GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
+		GetInventory()->GetCurrentWeapon()->UpdateClientAmmo();
 		return;
 	}
 	
-	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, GetCharacter()->GetCurrentWeapon()->GetRateOfFire());
-	GetInventory()->GetCurrent()->OnFire();
+	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, GetInventory()->GetCurrentWeapon()->GetRateOfFire());
+	GetInventory()->GetCurrentWeapon()->OnFire();
 }
 
 void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAbilityTargetDataHandle& Handle, FGameplayTag Tag) const
@@ -133,7 +135,7 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 		// If failed prediction, return and update client predicted ammo
 		if(!CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
 		{
-			GetCharacter()->GetCurrentWeapon()->UpdateClientAmmo();
+			GetInventory()->GetCurrentWeapon()->UpdateClientAmmo();
 			return;
 		}
 	}
@@ -142,7 +144,7 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 	((FGameplayEffectContextExtended*)Context.Get())->AddTargetData(Handle);
 
 	const FGameplayEffectSpecHandle& Spec = GetASC()->MakeOutgoingSpec(DamageEffectClass, 1.f, Context);
-	Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrent()->GetDamageCalculationTags());
+	Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrentWeapon()->GetDamageCalculationTags());
 
 	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastImpactCue, CurrentActivationInfo.GetActivationPredictionKey(), Context);
 	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastFiringCue, CurrentActivationInfo.GetActivationPredictionKey(), GetASC()->MakeEffectContext());
@@ -156,7 +158,7 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 	for(const AActor* Target : Targets)
 	{// For each simulating target, filter target data by the target and net multicast apply knockback
 		FGameplayCueParameters Params(FGameplayEffectContextHandle(new FGameplayEffectContextExtended(GetCharacter(), GAS::FilterTargetDataByActor(Target, Handle))));
-		Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrent(), Target, Spec);
+		Params.RawMagnitude = IDamageCalculationInterface::Execute_CalculateDamage(GetInventory()->GetCurrentWeapon(), Target, Spec);
 		GetASC()->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastKnockbackCue, FPredictionKey(), Params);
 	}
 

@@ -52,12 +52,6 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, CurrentInventory, COND_None, REPNOTIFY_OnChanged);
 }
 
-void AWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-	
-}
-
 void AWeapon::OnObtained_Implementation(UInventoryComponent* Inventory)
 {
 	if(Inventory != CurrentInventory)
@@ -74,13 +68,63 @@ void AWeapon::OnRemoved_Implementation(UInventoryComponent* Inventory)
 	OnRep_CurrentInventory(Inventory);
 }
 
+void AWeapon::OnEquipped_Implementation(UCharacterInventoryComponent* Inventory)
+{
+	SetVisibility(true);
+
+	// Only runs on server
+	GiveAbilities();
+
+	if(TP_EquipMontage)
+		if(UAnimInstance* AnimInstance = CurrentOwner->GetMesh()->GetAnimInstance())
+			AnimInstance->Montage_Play(TP_EquipMontage);
+
+	if(CurrentOwner->IsLocallyControlled() && FP_EquipMontage)
+		if(UAnimInstance* AnimInstance = CurrentOwner->GetFP_Mesh()->GetAnimInstance())
+			AnimInstance->Montage_Play(FP_EquipMontage);
+}
+
+void AWeapon::OnUnEquipped_Implementation(UCharacterInventoryComponent* Inventory)
+{
+	SetVisibility(false);
+
+	// Only runs on server
+	RemoveAbilities();
+}
+
+void AWeapon::GiveAbilities()
+{
+	if(HasAuthority() && CurrentOwner)
+		for(const TSubclassOf<UGASGameplayAbility>& Ability : WeaponAbilities)
+			if(Ability)
+				ActiveAbilities.Add(CurrentASC->GiveAbility(FGameplayAbilitySpec(Ability, 1, (int32)Ability.GetDefaultObject()->Input)));
+}
+
+void AWeapon::RemoveAbilities()
+{
+	if(HasAuthority() && CurrentOwner)
+	{
+		for(const FGameplayAbilitySpecHandle& Handle : ActiveAbilities)
+		{
+			CurrentASC->CancelAbilityHandle(Handle);
+			CurrentASC->SetRemoveAbilityOnEnd(Handle);
+		}
+	}
+	ActiveAbilities.Empty();
+}
+
+
+
+
+
 
 void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* OldInventory)
 {
 	if(CurrentInventory)
 	{
 		// If owner is AShooterCharacter, attach and init vars
-		if((CurrentOwner = Cast<AShooterCharacter>(CurrentInventory->GetOwner())) != nullptr)
+		CurrentOwner = Cast<AShooterCharacter>(CurrentInventory->GetOwner());
+		if(CurrentOwner)
 		{
 			CurrentCharacterInventory = CurrentOwner->GetCharacterInventory();
 			CurrentASC = CurrentOwner->GetASC();
@@ -90,7 +134,7 @@ void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* O
 			TP_Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("WeaponPoint"));
 
 			// Invisible if not currently equipped
-			if(CurrentOwner->GetCurrentWeapon() != this)
+			if(CurrentCharacterInventory->GetCurrentWeapon() != this)
 				SetVisibility(false);
 
 			// Set weapon mesh orientation

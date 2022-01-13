@@ -69,7 +69,6 @@ public:
 
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return BaseDamage; }
 
 	// Idk
@@ -148,6 +147,21 @@ protected:
 	FGameplayTagContainer DamageCalculationTags = TAG_CONTAINER("Data.CanHeadshot");
 	
 public:
+	/*
+	 *	Weapon aiblities stuff
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	virtual void GiveAbilities();
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	virtual void RemoveAbilities();
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = "State")
+	TArray<FGameplayAbilitySpecHandle> ActiveAbilities;
+
+	/*
+	 * Getters
+	 */
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class USkeletalMeshComponent* GetFP_Mesh() const { return FP_Mesh; }
 
@@ -208,6 +222,8 @@ public:
 	
 	friend void CallOnObtained(class AWeapon* Weapon, class UInventoryComponent* Inventory);
 	friend void CallOnRemoved(class AWeapon* Weapon, class UInventoryComponent* Inventory);
+	friend void CallOnEquipped(class AWeapon* Weapon, class UCharacterInventoryComponent* Inventory);
+	friend void CallOnUnEquipped(class AWeapon* Weapon, class UCharacterInventoryComponent* Inventory);
 protected:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnObtained(class UInventoryComponent* Inventory);
@@ -216,6 +232,14 @@ protected:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnRemoved(class UInventoryComponent* Inventory);
 	virtual void OnRemoved_Implementation(class UInventoryComponent* Inventory);
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnEquipped(class UCharacterInventoryComponent* Inventory);
+	virtual void OnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnUnEquipped(class UCharacterInventoryComponent* Inventory);
+	virtual void OnUnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
 
 	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_CurrentInventory)
 	class UInventoryComponent* CurrentInventory;

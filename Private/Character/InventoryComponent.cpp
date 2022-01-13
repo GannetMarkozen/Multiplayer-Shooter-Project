@@ -13,6 +13,7 @@ UInventoryComponent::UInventoryComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	SetIsReplicated(true);
+	SetIsReplicatedByDefault(true);
 }
 
 // friend func of AWeapon
@@ -37,15 +38,6 @@ void UInventoryComponent::BeginPlay()
 		}
 		
 		UInventoryComponent::AddItems(NewWeapons);
-		
-		/*
-		for(AWeapon* NewWeapon : NewWeapons)
-		{// Add weapons. Don't call AddWeapons cuz it crashes for some reason on BeginPlay
-			NewWeapon->SetOwner(GetOwner());
-			CallOnObtained(NewWeapon, this);
-			Weapons.Add(NewWeapon);
-		}
-		OnRep_Weapons({});*/
 	}
 }
 
@@ -76,10 +68,6 @@ int32 UInventoryComponent::AddItems(const TArray<AWeapon*>& NewWeapons)
 
 void UInventoryComponent::OnRep_Weapons()
 {
-	//FString Message;
-	//for(const AWeapon* Weapon : Weapons) if(Weapon) Message.Append(Weapon->GetName() + ", ");
-	//PRINT(TEXT("%s: Weapons == %s"), *AUTHTOSTRING(GetOwner()->HasAuthority()), *Message);
-	
 	for(AWeapon* Weapon : Weapons)
 	{
 		if(Weapon && Weapon->GetCurrentInventory() != this)

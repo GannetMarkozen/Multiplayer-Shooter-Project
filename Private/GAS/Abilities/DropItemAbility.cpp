@@ -23,14 +23,14 @@ UDropItemAbility::UDropItemAbility()
 
 bool UDropItemAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
-	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && INVENTORY->GetCurrent();
+	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && INVENTORY->GetCurrentWeapon();
 }
 
 void UDropItemAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 	
-	if(!ActorInfo->IsNetAuthority())
+	if(!CHARACTER->HasAuthority())
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 		return;
@@ -39,7 +39,7 @@ void UDropItemAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 	const FVector& ForwardVector = CHARACTER->GetViewRotation().Vector();
 	const FVector& Location = CHARACTER->GetCamera()->GetComponentLocation() + ForwardVector * DropSpawnOffset;
 	const FVector& Impulse = ForwardVector * DropVelocity;
-	AWeaponPickup::SpawnWeaponPickup(INVENTORY->GetCurrent(), Location, Impulse);
+	AWeaponPickup::SpawnWeaponPickup(INVENTORY->GetCurrentWeapon(), Location, Impulse);
 	INVENTORY->RemoveItem(INVENTORY->GetCurrentIndex());
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, false, false);

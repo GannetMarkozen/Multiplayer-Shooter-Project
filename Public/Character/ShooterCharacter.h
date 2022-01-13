@@ -12,7 +12,7 @@
 
 #include "ShooterCharacter.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FChangedWeapons, class AWeapon*, NewWeapon, const class AWeapon*, OldWeapon);
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FChangedWeapons, class AWeapon*, NewWeapon, const class AWeapon*, OldWeapon);
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterCharacter : public ACharacter, public IAbilitySystemInterface, public IInventoryInterface, public IDamageInterface
@@ -149,7 +149,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations|GAS")
 	TSubclassOf<class UGameplayEffect> DeathEffectClass;
 	
-public:
+public:/*
 	// If calling this locally also call it on the server to finalize change
 	UFUNCTION(BlueprintCallable, Category = "Character")
 	FORCEINLINE void SetCurrentWeapon(class AWeapon* NewWeapon, const bool bCallServer = false)
@@ -189,7 +189,7 @@ protected:
 public:
 	// Called whenever swapping weapons
 	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
-	FChangedWeapons ChangedWeaponsDelegate;
+	FChangedWeapons ChangedWeaponsDelegate;*/
 	
 	// Update HUD
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "ReserveAmmoText"), Category = "HUD")
