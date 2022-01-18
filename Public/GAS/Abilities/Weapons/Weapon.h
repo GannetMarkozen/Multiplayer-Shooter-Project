@@ -84,6 +84,9 @@ protected:
 	// Third-person weapon mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	TObjectPtr<class USkeletalMeshComponent> TP_Mesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
+	class UAnimSequence* AnimPose;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TObjectPtr<class UAnimMontage> FP_EquipMontage;
@@ -108,9 +111,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
 	TSubclassOf<class UGameplayEffect> DamageEffect;
-
-	UPROPERTY(EditDefaultsOnly, Meta = (Categories = "WeaponState"), Category = "Configurations")
-	FGameplayTag DelayAmmoReplicationTag = TAG("WeaponState.DelayReplication.Ammo");
 
 	// The base damage that all damage calculations are based off of
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
@@ -147,10 +147,13 @@ protected:
 	// Any extra specifiers for damage calculation like Data.CanHeadshot
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "Data"), Category = "Configurations")
 	FGameplayTagContainer DamageCalculationTags = TAG_CONTAINER("Data.CanHeadshot");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
+	FName WeaponAttachmentSocketName;;
 	
 public:
 	/*
-	 *	Weapon aiblities stuff
+	 *	Weapon abilities stuff
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	virtual void GiveAbilities();
@@ -227,6 +230,12 @@ public:
 	friend void CallOnEquipped(class AWeapon* Weapon, class UCharacterInventoryComponent* Inventory);
 	friend void CallOnUnEquipped(class AWeapon* Weapon, class UCharacterInventoryComponent* Inventory);
 protected:
+	/*
+	 *	Equipping and unequipping stuff
+	 */
+	UFUNCTION(BlueprintCallable)
+	virtual void AttachToWeaponSocket();
+	
 	UFUNCTION(BlueprintNativeEvent)
 	void OnObtained(class UInventoryComponent* Inventory);
 	virtual void OnObtained_Implementation(class UInventoryComponent* Inventory);
@@ -254,11 +263,7 @@ protected:
 
 	UPROPERTY(BlueprintReadWrite)
 	class UGASAbilitySystemComponent* CurrentASC;
-
-	//UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
-	//void OnRep_CurrentOwner(const class AShooterCharacter* OldOwner);
-	//virtual void OnRep_CurrentOwner_Implementation(const class AShooterCharacter* OldOwner);
-
+	
 	UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
 	void OnRep_CurrentInventory(const class UInventoryComponent* OldInventory);
 	virtual void OnRep_CurrentInventory_Implementation(const class UInventoryComponent* OldInventory);
@@ -290,6 +295,9 @@ public:
 		OnRep_Ammo(OldAmmo);
 	}
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FORCEINLINE void DecrementAmmo(const int32 Num = 1) { SetAmmo(Ammo - Num); }
+
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	const FORCEINLINE FGameplayAttribute& GetAmmoAttribute() const { return AmmoAttribute; }
 
@@ -314,22 +322,6 @@ public:
 	bool CanFire() const;
 	virtual FORCEINLINE bool CanFire_Implementation() const { return Ammo > 0; }
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void OnFire();
-	virtual FORCEINLINE void OnFire_Implementation();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void EndFire();
-	virtual FORCEINLINE void EndFire_Implementation() {}
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void OnSecondaryFire();
-	virtual FORCEINLINE void OnSecondaryFire_Implementation() {}
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void EndSecondaryFire();
-	virtual void FORCEINLINE EndSecondaryFire_Implementation() {}
-
 	// Update ammo client-side with the amount server side when mis-predicting
 	// ammo consumption. Only call on server, obviously
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -350,6 +342,9 @@ public:
 	FWeaponAmmoUpdated_Static ReserveAmmoDelegate_Static;
 	
 protected:
+	/*
+	 *	Ammo updated
+	 */
 	UFUNCTION()
 	virtual FORCEINLINE void OnRep_Ammo(const int32& OldAmmo)
 	{

@@ -7,7 +7,9 @@
 #include "GameplayEffectExtension.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Curves/CurveVector.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "GAS/ExtendedTypes.h"
 #include "GAS/AttributeSets/CharacterAttributeSet.h"
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
@@ -16,6 +18,7 @@
 #include "GAS/Effects/DeathEffect.h"
 #include "Net/UnrealNetwork.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
+#include "GAS/Abilities/Weapons/RecoilInstance.h"
 
 
 AShooterCharacter::AShooterCharacter()
@@ -24,13 +27,18 @@ AShooterCharacter::AShooterCharacter()
 
 	GetMesh()->SetOwnerNoSee(true);
 
-	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	Camera->bUsePawnControlRotation = true;
-	Camera->SetupAttachment(RootComponent);
-	
+	CameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Spring Arm"));
+	CameraSpringArm->TargetArmLength = 0.f;
+	CameraSpringArm->bUsePawnControlRotation = true;
+	CameraSpringArm->SetupAttachment(RootComponent);
+
 	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
 	FP_Mesh->SetOnlyOwnerSee(true);
-	FP_Mesh->SetupAttachment(Camera);
+	FP_Mesh->SetupAttachment(CameraSpringArm);
+
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->bUsePawnControlRotation = false;
+	Camera->SetupAttachment(CameraSpringArm);
 
 	ASC = CreateDefaultSubobject<UGASAbilitySystemComponent>(TEXT("Ability System Component"));
 	ASC->SetIsReplicated(true);
@@ -48,50 +56,26 @@ void AShooterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Reset recoil instances
+	URecoilInstance::NumInstances = 0;
+	
 	if(HasAuthority())
 		ASC->GetGameplayAttributeValueChangeDelegate(UCharacterAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
-
-	// TEMP
-	const auto& RifleAmmoChanged = [this](const FOnAttributeChangeData& Data)->void{ PRINT(TEXT("Rifle Ammo == %i"), (int32)Data.NewValue); };
-	if(HasAuthority())
-		ASC->GetGameplayAttributeValueChangeDelegate(UAmmoAttributeSet::GetRifleAmmoAttribute()).AddLambda(RifleAmmoChanged);
-
-	const auto& RifleAttributeChanged = [=](const FOnAttributeChangeData& Data)->void{ PRINT(TEXT("%s: Rifle Attribute Value == %i"), *AUTHTOSTRING(HasAuthority()), (int32)Data.NewValue); };
-	ASC->GetGameplayAttributeValueChangeDelegate(UAmmoAttributeSet::GetRifleAmmoAttribute()).AddLambda(RifleAttributeChanged);
 }
 
 
 void AShooterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	/*
-	if(GetCharacterMovement()->Velocity.Size() < StationaryThreshold)
-	{// If stationary
-		if(!bIsLerpRotating)
-		{
-			const float AddYaw = GetCharacterMovement()->GetLastUpdateRotation().Yaw;
-			if(AddYaw != 0.f)
-			{
-				GetMesh()->AddLocalRotation(FRotator(0.f, -AddYaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-				if(GetMesh()->GetRelativeRotation().Yaw + 90.f >= StationaryYawThreshold)
-					bIsLerpRotating = true;
-			}
-		}
-		else
-		{
-			const float AddYaw = FMath::FInterpConstantTo(GetMesh()->GetRelativeRotation().Yaw, -90.f, DeltaTime, InterpYawSpeed);
-			GetMesh()->AddLocalRotation(FRotator(0.f, AddYaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if(FMath::IsNearlyZero(AddYaw)) bIsLerpRotating = false;
-		}
-	}
-	else bIsLerpRotating = false;*/
+
+
 }
 
 void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
-	//DOREPLIFETIME_CONDITION_NOTIFY(AShooterCharacter, CurrentWeapon, COND_None, REPNOTIFY_OnChanged);
+	
 }
 
 void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

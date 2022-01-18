@@ -16,6 +16,7 @@ AWeapon::AWeapon()
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 
+	WeaponAttachmentSocketName = FName("weaponsocket_r");
 	AmmoAttribute = UAmmoAttributeSet::GetRifleAmmoAttribute();
 
 	DefaultScene = CreateDefaultSubobject<USceneComponent>(TEXT("Default Scene"));
@@ -71,6 +72,8 @@ void AWeapon::OnObtained_Implementation(UInventoryComponent* Inventory)
 
 void AWeapon::OnRemoved_Implementation(UInventoryComponent* Inventory)
 {
+	RemoveAbilities();
+	
 	CurrentInventory = nullptr;
 	OnRep_CurrentInventory(Inventory);
 }
@@ -117,14 +120,14 @@ void AWeapon::RemoveAbilities()
 	{
 		for(const FGameplayAbilitySpecHandle& Handle : ActiveAbilities)
 		{
-			CurrentASC->CancelAbilityHandle(Handle);
+			//CurrentASC->CancelAbilityHandle(Handle);
+			if(UGASGameplayAbility* Ability = CurrentASC->GetAbilityFromHandle(Handle))
+				Ability->ExternalEndAbility();
 			CurrentASC->SetRemoveAbilityOnEnd(Handle);
 		}
 	}
 	ActiveAbilities.Empty();
 }
-
-
 
 void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* OldInventory)
 {
@@ -137,26 +140,13 @@ void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* O
 			// Init vars
 			CurrentCharacterInventory = CurrentOwner->GetCharacterInventory();
 			CurrentASC = CurrentOwner->GetASC();
-			
-			// Attach weapon mesh to character
-			FP_Mesh->AttachToComponent(CurrentOwner->GetFP_Mesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("WeaponPoint"));
-			TP_Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("WeaponPoint"));
 
 			// Invisible if not currently equipped
 			if(CurrentCharacterInventory->GetCurrentWeapon() != this)
 				SetVisibility(false);
 
-			// Set weapon mesh orientation
-			if(FP_Mesh->SkeletalMesh && CurrentOwner->GetItemMeshDataTable())
-			{
-				if(const FMeshTableRow* MeshRow = CurrentOwner->GetItemMeshDataTable()->FindRow<FMeshTableRow>(FP_Mesh->SkeletalMesh->GetFName(), "MeshTableRow"))
-				{
-					const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
-					const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
-					FP_Mesh->SetRelativeTransform(DefObj->FP_Mesh->GetRelativeTransform() * RelativeTransform);
-					TP_Mesh->SetRelativeTransform(DefObj->TP_Mesh->GetRelativeTransform() * RelativeTransform);
-				}
-			}
+			// Attach to weapon socket point
+			AttachToWeaponSocket();
 			
 			// Bind reserve ammo delegate on changed
 			if(AmmoAttribute.IsValid())
@@ -176,12 +166,25 @@ void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* O
 	}
 }
 
-
-void AWeapon::OnFire_Implementation()
+void AWeapon::AttachToWeaponSocket()
 {
-	SetAmmo(Ammo - 1);
+	if(!CurrentOwner) return;
+	
+	// Attach weapon mesh to character
+	FP_Mesh->AttachToComponent(CurrentOwner->GetFP_Mesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
+	TP_Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
 
-	CurrentASC->AddLooseGameplayTagForDurationSingle(TAG("WeaponState.Firing"), RateOfFire);
+	// Set weapon mesh orientation
+	if(FP_Mesh->SkeletalMesh && CurrentOwner->GetItemMeshDataTable())
+	{
+		if(const FMeshTableRow* MeshRow = CurrentOwner->GetItemMeshDataTable()->FindRow<FMeshTableRow>(FP_Mesh->SkeletalMesh->GetFName(), "MeshTableRow"))
+		{
+			const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
+			const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
+			FP_Mesh->SetRelativeTransform(DefObj->FP_Mesh->GetRelativeTransform() * RelativeTransform);
+			TP_Mesh->SetRelativeTransform(DefObj->TP_Mesh->GetRelativeTransform() * RelativeTransform);
+		}
+	}
 }
 
 FGameplayAttributeData* AWeapon::GetAmmoAttributeData() const

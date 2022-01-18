@@ -69,7 +69,7 @@ void UDamageExecutionCalculation::Execute_Implementation(const FGameplayEffectCu
 		for(const FHitResult* Hit : Hits)
 		{
 			if(!Hit) continue;
-			if(Hit->BoneName == FName("b_head"))
+			if(Hit->BoneName == FName("head"))
 				NumHeadshots++;
 		}
 		const float* CustomHeadshotMultiplier = ExecutionParams.GetOwningSpec().SetByCallerTagMagnitudes.Find(TAG("Data.HeadshotMultiplier"));

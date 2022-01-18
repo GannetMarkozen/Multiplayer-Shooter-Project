@@ -37,6 +37,9 @@ public:
 	virtual FORCEINLINE class UInventoryComponent* GetInventory_Implementation() override { return Inventory; }
 
 protected:
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
+	TObjectPtr<class USpringArmComponent> CameraSpringArm;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
 	TObjectPtr<class UCameraComponent> Camera;
 	
@@ -149,48 +152,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations|GAS")
 	TSubclassOf<class UGameplayEffect> DeathEffectClass;
 	
-public:/*
-	// If calling this locally also call it on the server to finalize change
-	UFUNCTION(BlueprintCallable, Category = "Character")
-	FORCEINLINE void SetCurrentWeapon(class AWeapon* NewWeapon, const bool bCallServer = false)
-	{
-		Internal_SetCurrentWeapon(NewWeapon);
-		if(bCallServer && !HasAuthority())
-			Server_SetCurrentWeapon(NewWeapon);
-	}
-
-	UFUNCTION(BlueprintPure, Category = "Character")
-	FORCEINLINE class AWeapon* GetCurrentWeapon() const { return CurrentWeapon; }
-	
-protected:
-	UFUNCTION(Server, Reliable)
-	void Server_SetCurrentWeapon(class AWeapon* NewWeapon);
-	FORCEINLINE void Server_SetCurrentWeapon_Implementation(class AWeapon* NewWeapon)
-	{
-		Internal_SetCurrentWeapon(NewWeapon);
-	}
-	
-	void Internal_SetCurrentWeapon(class AWeapon* NewWeapon)
-	{
-		const AWeapon* OldWeapon = CurrentWeapon;
-		CurrentWeapon = NewWeapon;
-		OnRep_Weapon(OldWeapon);
-	}
-	
-	// The current weapon equipped
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_Weapon, Category = "Character")
-	class AWeapon* CurrentWeapon;
-	
-	// Called when swapped weapon
-	UFUNCTION(BlueprintNativeEvent, Category = "Character")
-	void OnRep_Weapon(const class AWeapon* LastWeapon);
-	void OnRep_Weapon_Implementation(const class AWeapon* LastWeapon);
-	
 public:
-	// Called whenever swapping weapons
-	UPROPERTY(BlueprintAssignable, Category = "Character|Delegates")
-	FChangedWeapons ChangedWeaponsDelegate;*/
-	
 	// Update HUD
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "ReserveAmmoText"), Category = "HUD")
 	void SetReserveAmmoText(const FText& ReserveAmmoText);
@@ -200,17 +162,22 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "InspectText"), Category = "HUD")
 	void SetInspectText(const FText& InspectText);
+	
+	UFUNCTION(BlueprintPure, Category = "Character")
+	FORCEINLINE class AWeapon* GetCurrentWeapon() const
+	{
+		return Inventory->GetCurrentWeapon();
+	}
 
-protected:
-	// Anim configurations
-	UPROPERTY(EditAnywhere, Category = "Anim")
-	float StationaryYawThreshold = 90.f;
 
-	UPROPERTY(EditAnywhere, Category = "Anim")
-	float StationaryThreshold = 10.f;
+	/*
+	 *	Procedural FP weapon animation stuff
+	 */
+	// The amount we are currently aiming. From 0 - 1
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = "Anim")
+	float ADSMagnitude = 0.f;
 
-	UPROPERTY(EditAnywhere, Category = "Anim")
-	float InterpYawSpeed = 0.5f;
-
-	bool bIsLerpRotating = false;
+	// FP arms mesh ik offset
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = "Anim")
+	FTransform FPOffsetTransform;
 };

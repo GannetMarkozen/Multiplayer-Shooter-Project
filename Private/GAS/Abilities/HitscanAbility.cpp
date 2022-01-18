@@ -9,11 +9,10 @@
 #include "GAS/ExtendedTypes.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
 #include "GAS/Effects/DamageEffect.h"
-#include "Objects/LineTraceObject.h"
 
 UHitscanAbility::UHitscanAbility()
 {
-	LineTraceObject = CreateDefaultSubobject<ULineTraceObject>(TEXT("LineTraceObject"));
+	//LineTraceObject = CreateDefaultSubobject<ULineTraceObject>(TEXT("LineTraceObject"));
 	DamageEffectClass = UDamageEffect::StaticClass();
 
 	FiringStateTag = TAG("WeaponState.Firing");
@@ -38,11 +37,6 @@ void UHitscanAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, 
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
 
-	if(const AWeapon* Weapon = INVENTORY->GetCurrentWeapon())
-	{
-		LineTraceObject.Get()->Range = Weapon->GetRange();
-	}
-
 	if(ActorInfo->IsNetAuthority() && !ActorInfo->IsLocallyControlled())
 	{// If server and not locally controlled, setup RPC delegates
 		GET_ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Spec.Handle, CurrentActivationInfo.GetActivationPredictionKey()).AddUObject(this, &UHitscanAbility::Server_ReceivedEvent);
@@ -55,15 +49,23 @@ bool UHitscanAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle
 	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && GetInventory()->GetCurrentWeapon() && GetInventory()->GetCurrentWeapon()->CanFire();
 }
 
+void UHitscanAbility::DoLineTrace_Implementation(FHitResult& Hit, const FVector& Location, const FRotator& Rotation, const TArray<AActor*>& IgnoreActors)
+{
+	const FVector2D& CalcSpread = FVector2D(FMath::FRandRange(-Spread.Y, Spread.Y), FMath::FRandRange(-Spread.X, Spread.X)) * CalculateSpreadMagnitude();
+	const FRotator& RandRotation = { Rotation.Pitch + CalcSpread.Y, Rotation.Yaw + CalcSpread.X, 0.f };
+	const FVector& End = Location + RandRotation.Vector() * Range;
+	
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActors(IgnoreActors);
+	GetWorld()->LineTraceSingleByChannel(Hit, Location, End, TraceChannel, QueryParams);
+	//DrawDebugLine(GetWorld(), Location, Hit.IsValidBlockingHit() ? Hit.Location : End, Hit.IsValidBlockingHit() ? FColor::Green : FColor::Red, false, 5.f);
+}
 
 void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	const AWeapon* CurrentWeapon = CURRENTWEAPON;
-	
-	// Locally add firing tag
-	GET_ASC->AddLooseGameplayTagForDurationSingle(FiringStateTag, CurrentWeapon->GetRateOfFire());
+	AWeapon* CurrentWeapon = CURRENTWEAPON;
 
 	if(ActorInfo->IsLocallyControlled())
 	{// If locally controlled, play local firing animation
@@ -77,14 +79,16 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 	TArray<FHitResult> Hits;
 	for(int32 i = 0; i < CurrentWeapon->GetNumShots(); i++)
 	{
-		Hits.Add(LineTraceObject->DoLineTrace(GetCharacter()->GetCamera()->GetComponentLocation(), GetCharacter()->GetCamera()->GetComponentRotation(), {GetCharacter()}, 1.f));
+		FHitResult Hit;
+		DoLineTrace(Hit, GetCharacter()->GetCamera()->GetComponentLocation(), GetCharacter()->GetCamera()->GetComponentRotation(), {GetCharacter()});
+		Hits.Add(Hit);
 	}
 
 	FGameplayAbilityTargetDataHandle DataHandle;
 	for(const FHitResult& Hit : Hits)
 	{
 		if(Hit.IsValidBlockingHit())
-			DataHandle.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit));
+			DataHandle.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit)); 
 	}
 		
 	if(!DataHandle.Data.IsEmpty())
@@ -93,7 +97,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 		{// Replicate target data if server, otherwise simply call target data received
 			const FPredictionKey& Key = ActivationInfo.GetActivationPredictionKey();
 			GetASC()->ServerSetReplicatedTargetData(Handle, Key, DataHandle, FGameplayTag(), Key);
-			GetInventory()->GetCurrentWeapon()->OnFire();
+			OnFire(CurrentWeapon);
 		}
 		else
 		{
@@ -104,7 +108,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 	{// If no valid hits, RPC nothing. If server, simply call event received
 		const FPredictionKey& Key = ActivationInfo.GetActivationPredictionKey();
 		GetASC()->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericSignalFromClient, Handle, Key, Key);
-		GetInventory()->GetCurrentWeapon()->OnFire();
+		OnFire(CurrentWeapon);
 	}
 	else
 	{
@@ -116,14 +120,15 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
 void UHitscanAbility::Server_ReceivedEvent_Implementation() const
 {// If failed prediction, return and update client predicted ammo
+	AWeapon* CurrentWeapon = GetInventory()->GetCurrentWeapon();
 	if(!CurrentActorInfo->IsLocallyControlled() && !CanActivateAbility(CurrentSpecHandle, CurrentActorInfo, nullptr, nullptr, nullptr))
 	{
-		GetInventory()->GetCurrentWeapon()->UpdateClientAmmo();
+		CurrentWeapon->UpdateClientAmmo();
 		return;
 	}
 	
-	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, GetInventory()->GetCurrentWeapon()->GetRateOfFire());
-	GetInventory()->GetCurrentWeapon()->OnFire();
+	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, CurrentWeapon->GetRateOfFire());
+	OnFire(CurrentWeapon);
 }
 
 void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAbilityTargetDataHandle& Handle, FGameplayTag Tag) const
@@ -192,4 +197,10 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 
 	// Generic received event to decrement ammo and apply firing tag
 	Server_ReceivedEvent_Implementation();
+}
+
+void UHitscanAbility::OnFire_Implementation(AWeapon* CurrentWeapon) const
+{
+	CurrentWeapon->DecrementAmmo();
+	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, CurrentWeapon->GetRateOfFire());
 }

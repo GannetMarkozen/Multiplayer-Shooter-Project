@@ -49,13 +49,6 @@ void UReloadWeaponAbility::AmmoChanged_Implementation(const int32 Ammo)
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	const AWeapon* Current = CURRENTWEAPON;
-	if(ActorInfo->IsNetAuthority())
-	{
-		if(!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags)) {PRINT(TEXT("Can Activate Ability"));}
-		else if(!Current) {PRINT(TEXT("Current"));}
-		else if(!(Current->GetAmmo() < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->GetAmmo())) {PRINT(TEXT("Ammo == %i"), Current->GetAmmo());}
-		else if(!(Current->GetReserveAmmo() > 0)) {PRINT(TEXT("Reserve Ammo"));}
-	}
 	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && Current && Current->GetAmmo() < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->GetAmmo() && Current->GetReserveAmmo() > 0;
 }
 

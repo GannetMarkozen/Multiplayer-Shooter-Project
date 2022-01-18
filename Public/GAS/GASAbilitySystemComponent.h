@@ -186,6 +186,19 @@ protected:
 	virtual void ClientActivateAbilitySucceed_Implementation(FGameplayAbilitySpecHandle AbilityToActivate, FPredictionKey PredictionKey) override;
 	virtual void ClientActivateAbilitySucceedWithEventData_Implementation(FGameplayAbilitySpecHandle AbilityToActivate, FPredictionKey PredictionKey, FGameplayEventData TriggerEventData) override;
 	virtual FORCEINLINE bool ShouldDoServerAbilityRPCBatch() const override { return true; }
+
+	// Params == const FGameplayTag, int32
+	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "Register Gameplay Tag Event", AutoCreateRefTerm = "Tag, FuncName", DefaultToSelf = "Object", AllowPrivateAccess = "true"), Category = "GAS")
+	FORCEINLINE void K2_RegisterGameplayTagEvent(class UObject* Object, const FGameplayTag& Tag, const FName& FuncName)
+	{
+		if(IsValid(Object) && Tag.IsValid() && FuncName.IsValid()) RegisterGameplayTagEvent(Tag, EGameplayTagEventType::AnyCountChange).AddUFunction(Object, FuncName);
+	}
+
+	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "Unregister Gameplay Tag Event From Object", AutoCreateRefTerm = "Tag", DefaultToSelf = "Object", AllowPrivateAccess = "true"), Category = "GAS")
+	FORCEINLINE void K2_UnregisterGameplayTagEventFromObject(class UObject* Object, const FGameplayTag& Tag)
+	{
+		if(IsValid(Object) && Tag.IsValid()) RegisterGameplayTagEvent(Tag, EGameplayTagEventType::AnyCountChange).RemoveAll(Object);
+	}
 	
 	UFUNCTION(Client, Reliable)
 	void Client_ExecuteGameplayCueLocal(const FGameplayTag& GameplayCueTag, const FGameplayCueParameters& Params);
