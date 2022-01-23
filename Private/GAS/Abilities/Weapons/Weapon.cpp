@@ -60,25 +60,29 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, CurrentInventory, COND_None, REPNOTIFY_OnChanged);
 }
 
-void AWeapon::OnObtained_Implementation(UInventoryComponent* Inventory)
+void AWeapon::OnObtained(UInventoryComponent* Inventory)
 {
 	if(Inventory != CurrentInventory)
 	{
 		const UInventoryComponent* OldInventory = CurrentInventory;
 		CurrentInventory = Inventory;
 		OnRep_CurrentInventory(OldInventory);
+		
+		BP_OnObtained(Inventory);
 	}
 }
 
-void AWeapon::OnRemoved_Implementation(UInventoryComponent* Inventory)
+void AWeapon::OnRemoved(UInventoryComponent* Inventory)
 {
 	RemoveAbilities();
 	
 	CurrentInventory = nullptr;
 	OnRep_CurrentInventory(Inventory);
+
+	BP_OnRemoved(Inventory);
 }
 
-void AWeapon::OnEquipped_Implementation(UCharacterInventoryComponent* Inventory)
+void AWeapon::OnEquipped(UCharacterInventoryComponent* Inventory)
 {
 	SetVisibility(true);
 
@@ -96,14 +100,18 @@ void AWeapon::OnEquipped_Implementation(UCharacterInventoryComponent* Inventory)
 	if(CurrentOwner->IsLocallyControlled() && FP_EquipMontage)
 		if(UAnimInstance* AnimInstance = CurrentOwner->GetFP_Mesh()->GetAnimInstance())
 			AnimInstance->Montage_Play(FP_EquipMontage);
+
+	BP_OnEquipped(Inventory);
 }
 
-void AWeapon::OnUnEquipped_Implementation(UCharacterInventoryComponent* Inventory)
+void AWeapon::OnUnEquipped(UCharacterInventoryComponent* Inventory)
 {
 	SetVisibility(false);
 
 	// Only runs on server
 	RemoveAbilities();
+
+	BP_OnUnEquipped(Inventory);
 }
 
 void AWeapon::GiveAbilities()
@@ -174,14 +182,24 @@ void AWeapon::AttachToWeaponSocket()
 	FP_Mesh->AttachToComponent(CurrentOwner->GetFP_Mesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
 	TP_Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
 
-	// Set weapon mesh orientation
-	if(FP_Mesh->SkeletalMesh && CurrentOwner->GetItemMeshDataTable())
+
+	const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
+	
+	// Set weapon mesh orientation FP && TP
+	if(FP_Mesh->SkeletalMesh && CurrentOwner->FPItemMeshDataTable)
 	{
-		if(const FMeshTableRow* MeshRow = CurrentOwner->GetItemMeshDataTable()->FindRow<FMeshTableRow>(FP_Mesh->SkeletalMesh->GetFName(), "MeshTableRow"))
+		if(const FMeshTableRow* MeshRow = CurrentOwner->FPItemMeshDataTable->FindRow<FMeshTableRow>(FP_Mesh->SkeletalMesh->GetFName(), "FPMeshTableRow"))
 		{
 			const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
-			const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
 			FP_Mesh->SetRelativeTransform(DefObj->FP_Mesh->GetRelativeTransform() * RelativeTransform);
+		}
+	}
+
+	if(TP_Mesh->SkeletalMesh && CurrentOwner->TPItemMeshDataTable)
+	{
+		if(const FMeshTableRow* MeshRow = CurrentOwner->TPItemMeshDataTable->FindRow<FMeshTableRow>(TP_Mesh->SkeletalMesh->GetFName(), "TPMeshTableRow"))
+		{
+			const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
 			TP_Mesh->SetRelativeTransform(DefObj->TP_Mesh->GetRelativeTransform() * RelativeTransform);
 		}
 	}

@@ -33,6 +33,10 @@ protected:
     void AmmoChanged(const int32 Ammo);
     virtual void AmmoChanged_Implementation(const int32 Ammo);
 
+    UFUNCTION(BlueprintNativeEvent, Category = "GAS|Ability")
+    void TagsChanged(FGameplayTag Tag, int32 Count);
+    virtual void TagsChanged_Implementation(FGameplayTag Tag, int32 Count);
+
     UPROPERTY(BlueprintReadWrite, Category = "GAS|Ability")
     TObjectPtr<class AWeapon> CurrentWeapon;
 

@@ -4,21 +4,19 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
-#include "MultiplayerShooter/MultiplayerShooter.h"
-#include "FPAnimInstance.generated.h"
+#include "TPAnimInstance.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class MULTIPLAYERSHOOTER_API UFPAnimInstance : public UAnimInstance
+class MULTIPLAYERSHOOTER_API UTPAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
 public:
-	UFPAnimInstance();
-	
+	UTPAnimInstance();
+
 protected:
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void NativeBeginPlay() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
 
@@ -38,10 +36,10 @@ protected:
 	virtual void SetVars_Implementation(const float DeltaTime);
 
 	virtual void CalculateWeaponSway(const float DeltaTime);
-	
-public:	
+
+public:
 	/*
-	 *	References
+	 *	REFERENCES
 	 */
 	
 	UPROPERTY(BlueprintReadWrite, Category = "Anim")
@@ -53,46 +51,45 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Anim")
 	class AWeapon* CurrentWeapon;
 
-	/*
-	 *	Params
-	 */
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	class UCurveVector* MovementWeaponSwayCurve;
-
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	class UCurveVector* IdleWeaponSwayCurve;
-
-	/*
-	 *	IK / ADS metrics
-	 */
-
-	// The current pose applied to the IK
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Anim|IK")
 	class UAnimSequence* AnimPose;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Anim|IK")
+	float CurrentAimPointOffset = 0.f;
+
+	/*
+	 *	IK
+	 */
 
 	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
 	FTransform RHandToSightsTransform;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
-	FTransform RelativeAimPointTransform;
-	
-	// The transform offset of the IK arms mesh
+	FTransform RelativeCameraTransform;
+
 	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
 	FTransform OffsetTransform;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
 	float ADSMagnitude = 0.f;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
-	FRotator LastAimRotation;
-
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
-	FVector LastVelocity;
-
 	/*
-	 *	Accumulative values
+	 *	BASIC LOCOMOTION
 	 */
 	
+	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
+	float MovementDirection = 0.f;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
+	bool bIsFalling = false;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
+	float MovementWeaponSwayProgress = 0.f;
+
+	/*
+	 *	ACCUMULATIVE OFFSETS
+	 */
+
 	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
 	FRotator AccumulativeRotation;
 
@@ -112,30 +109,37 @@ public:
 	float MovementWeaponSwayProgressTime = 0.f;
 
 	/*
-	 *	Basic locomotion metrics
+	 *	OTHER VARS
 	 */
+
+	UPROPERTY(BlueprintReadOnly, Category = "Anim|IK")
+	FTransform CameraTransform;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Anim|IK")
+	FVector LastVelocity;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Anim|IK")
+	FRotator LastAimRotation;
 	
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
-	float MovementDirection = 0.f;
-
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
-	bool bIsFalling = false;
-
 	/*
-	 * Configurations
-	 */
+	*	CONFIGURATIONS
+	*/
 
-	UPROPERTY(EditAnywhere, Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	float MaxMoveSpeed = 600.f;
 
-	// Determines the speed the rotation transform target is reset
-	UPROPERTY(EditAnywhere, Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
+	class UCurveVector* IdleWeaponSwayCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
+	class UCurveVector* MovementWeaponSwayCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	float AccumulativeRotationReturnInterpSpeed = 30.f;
 
-	// Determines the speed the rotation transform reaches it's target
-	UPROPERTY(EditAnywhere, Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	float AccumulativeRotationInterpSpeed = 5.f;
 
-	UPROPERTY(EditAnywhere, Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	float VelocityInterpSpeed = 10.f;
 };

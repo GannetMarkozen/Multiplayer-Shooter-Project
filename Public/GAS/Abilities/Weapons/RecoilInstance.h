@@ -49,8 +49,12 @@ protected:
 	virtual void Activate_Implementation();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Recoil")
-	FTransform MakeTargetTransform();
-	virtual FTransform MakeTargetTransform_Implementation();
+	FTransform MakeTargetTransform() const;
+	virtual FTransform MakeTargetTransform_Implementation() const;
+
+	UFUNCTION(BlueprintNativeEvent, Category = "Recoil")
+	float CalculateTargetTransformMagnitude() const;
+	virtual FORCEINLINE float CalculateTargetTransformMagnitude_Implementation() const { return 1.f; }
 
 	UPROPERTY(BlueprintReadOnly, Category = "Recoil")
 	FTransform TargetTransform;

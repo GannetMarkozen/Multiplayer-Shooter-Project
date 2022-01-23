@@ -1,38 +1,29 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Character/FPAnimInstance.h"
+#include "Character/TPAnimInstance.h"
 
 #include "Camera/CameraComponent.h"
 #include "Character/ShooterCharacter.h"
 #include "Curves/CurveVector.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Net/UnrealNetwork.h"
 
 
-UFPAnimInstance::UFPAnimInstance()
+UTPAnimInstance::UTPAnimInstance()
 {
 	
 }
 
-void UFPAnimInstance::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-}
-
-
-void UFPAnimInstance::NativeBeginPlay()
+void UTPAnimInstance::NativeBeginPlay()
 {
 	Super::NativeBeginPlay();
-
 }
 
-void UFPAnimInstance::NativeUpdateAnimation(float DeltaTime)
+void UTPAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeUpdateAnimation(DeltaTime);
-	
+
 	if(!Character)
 	{
 		Character = Cast<AShooterCharacter>(TryGetPawnOwner());
@@ -50,37 +41,48 @@ void UFPAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	SetVars(DeltaTime);
 	CalculateWeaponSway(DeltaTime);
 
-	// Set last aim rotation for next update
+	// Set old vars for next anim update
 	LastAimRotation = Character->GetBaseAimRotation();
 	LastVelocity = Character->GetCharacterMovement()->Velocity;
 }
 
-void UFPAnimInstance::Init()
+void UTPAnimInstance::SetVars_Implementation(const float DeltaTime)
 {
-	Mesh = Character->GetFP_Mesh();
+	if(Character->IsLocallyControlled())
+	{
+		CameraTransform = Character->GetCamera()->GetComponentTransform();
+	}
+	else
+	{
+		CameraTransform = FTransform(Character->GetBaseAimRotation(), Character->GetCamera()->GetComponentLocation());
+	}
 	
-	// Bind weapon changed delegate and call if immediately if current weapon is valid
-	Character->GetCharacterInventory()->CurrentWeaponChangeDelegate.AddDynamic(this, &UFPAnimInstance::WeaponChanged);
-	
-	if(AWeapon* NewWeapon = Character->GetCurrentWeapon())
-		WeaponChanged(NewWeapon, nullptr);
-}
+	/*
+	 *	LOCOMOTION VARS
+	 */
 
-void UFPAnimInstance::SetVars_Implementation(const float DeltaTime)
-{
-	// Basic vars
 	MovementDirection = CalculateDirection(Character->GetCharacterMovement()->Velocity, Character->GetBaseAimRotation());
-	
+
 	bIsFalling = Character->GetCharacterMovement()->IsFalling();
-	
+
 	MovementWeaponSwayProgressTime += DeltaTime * (MovementSpeedInterp / MaxMoveSpeed);
-	
-	ADSMagnitude = Character->ADSValue;
 
 	/*
-	 *	WeaponSway / IK stuff
+	 *	IK VARS
 	 */
 	
+	ADSMagnitude = Character->ADSValue;
+	
+	const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
+	//RelativeCameraTransform = FTransform(Character->GetBaseAimRotation(), Character->GetCamera()->GetComponentLocation()).GetRelativeTransform(RootOffset);
+	
+	RelativeCameraTransform = CameraTransform.GetRelativeTransform(RootOffset);
+	
+
+	/*
+	 *	ACCUMULATIVE OFFSET VARS
+	 */
+
 	const FRotator& AddRotation = Character->GetBaseAimRotation() - LastAimRotation;
 	FRotator AddRotationClamped = FRotator(FMath::ClampAngle(AddRotation.Pitch, -25.f, 25.f) * 1.5f,
 		FMath::ClampAngle(AddRotation.Yaw, -25.f, 25.f), 0.f);
@@ -106,8 +108,7 @@ void UFPAnimInstance::SetVars_Implementation(const float DeltaTime)
 	VelocityInterp = UKismetMathLibrary::VInterpTo(VelocityInterp, VelocityTarget, DeltaTime, 3.f);
 }
 
-
-void UFPAnimInstance::CalculateWeaponSway(const float DeltaTime)
+void UTPAnimInstance::CalculateWeaponSway(const float DeltaTime)
 {
 	// Add onto offsets and then apply onto offset transform for IK
 	FVector OffsetLocation = FVector::ZeroVector;
@@ -143,32 +144,44 @@ void UFPAnimInstance::CalculateWeaponSway(const float DeltaTime)
 }
 
 
+void UTPAnimInstance::Init()
+{
+	Mesh = Character->GetMesh();
 
+	Character->GetCharacterInventory()->CurrentWeaponChangeDelegate.AddDynamic(this, &UTPAnimInstance::WeaponChanged);
 
+	if(AWeapon* NewWeapon = Character->GetCurrentWeapon())
+		WeaponChanged(NewWeapon, nullptr);
+}
 
-
-void UFPAnimInstance::WeaponChanged_Implementation(AWeapon* NewWeapon, const AWeapon* OldWeapon)
+void UTPAnimInstance::WeaponChanged_Implementation(AWeapon* NewWeapon, const AWeapon* OldWeapon)
 {
 	CurrentWeapon = NewWeapon;
 	if(!CurrentWeapon) return;
-	
-	if(UAnimSequence* NewPose = CurrentWeapon->FPAnimPose)
+
+	if(UAnimSequence* NewPose = CurrentWeapon->TPAnimPose)
 		AnimPose = NewPose;
-	
-	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &UFPAnimInstance::SetIKTransforms);
+
+	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &UTPAnimInstance::SetIKTransforms);
 }
 
-void UFPAnimInstance::SetIKTransforms()
+void UTPAnimInstance::SetIKTransforms()
 {
-	// The sights transform relative to the right hand
-	RHandToSightsTransform = CurrentWeapon->GetFPSightsWorldTransform().GetRelativeTransform(Mesh->GetSocketTransform(FName("hand_r")));
+	RHandToSightsTransform = CurrentWeapon->GetTPSightsWorldTransform().GetRelativeTransform(Mesh->GetSocketTransform(FName("hand_r")));
 
-	// The aiming point relative to the mesh root. Ends up a bit in front of the camera
-	const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
+	CurrentAimPointOffset = CurrentWeapon->AimOffset;
+	
+	//RHandToSightsTransform = CurrentWeapon->GetTP_Mesh()->GetSocketTransform(SightsSocketName).GetRelativeTransform(Mesh->GetSocketTransform("hand_r"));
+
+	/*const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
 	FTransform CameraOffset = Character->GetCamera()->GetComponentTransform().GetRelativeTransform(RootOffset);
-	CameraOffset.AddToTranslation(CameraOffset.GetRotation().GetForwardVector() * CurrentWeapon->AimOffset);
-	RelativeAimPointTransform = CameraOffset;
+	CameraOffset.AddToTranslation(CameraOffset.GetRotation().GetForwardVector() * AimPointOffset);
+	RelativeAimPointTransform = CameraOffset;*/
+
+	//const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
+	//RelativeCameraTransform = Character->GetCamera()->GetComponentTransform().GetRelativeTransform(RootOffset);
 }
+
 
 
 

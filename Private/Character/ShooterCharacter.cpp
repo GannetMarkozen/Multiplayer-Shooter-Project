@@ -75,8 +75,16 @@ void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
-	
+	DOREPLIFETIME_CONDITION(AShooterCharacter, ADSValue, COND_SkipOwner);
 }
+
+void AShooterCharacter::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
+{
+	Super::PreReplication(ChangedPropertyTracker);
+
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AShooterCharacter, ADSValue, ADSValue <= 0.f || ADSValue >= 1.f);
+}
+
 
 void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -252,6 +260,9 @@ void AShooterCharacter::Ragdoll_Implementation(const float Magnitude, const FGam
 		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(this, TAG("GameplayCue.Knockback"), EGameplayCueEvent::Executed, Params);
 	}
 }
+
+
+
 
 
 

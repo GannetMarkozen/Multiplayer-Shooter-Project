@@ -7,6 +7,7 @@
 #include "AbilitySystemInterface.h"
 #include "GAS/GASAbilitySystemComponent.h"
 #include "Character/CharacterInventoryComponent.h"
+#include "Components/TimelineComponent.h"
 #include "GAS/DamageInterface.h"
 #include "GAS/AttributeSets/CharacterAttributeSet.h"
 
@@ -28,6 +29,7 @@ protected:
 public:	
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual FORCEINLINE class UAbilitySystemComponent* GetAbilitySystemComponent() const override { return ASC; }
 
@@ -57,9 +59,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
 	TObjectPtr<class UCharacterInventoryComponent> Inventory;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations")
-	TObjectPtr<class UDataTable> ItemMeshDataTable;
 
 	virtual void MoveForward(float Value);
 	virtual void MoveRight(float Value);
@@ -109,9 +108,6 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class UCameraComponent* GetCamera() const { return Camera; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UDataTable* GetItemMeshDataTable() const { return ItemMeshDataTable; }
 
 	// Immediately kills the player
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "OptionalSpec"), Category = "Character")
@@ -173,11 +169,18 @@ public:
 	/*
 	 *	Procedural FP weapon animation stuff
 	 */
+	
 	// The amount we are currently aiming. From 0 - 1
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = "Anim")
-	float ADSMagnitude = 0.f;
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated, Category = "Anim")
+	float ADSValue = 0.f;
 
 	// FP arms mesh ik offset
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = "Anim")
 	FTransform FPOffsetTransform;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations|Anim")
+	class UDataTable* FPItemMeshDataTable;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations|Anim")
+	class UDataTable* TPItemMeshDataTable;
 };

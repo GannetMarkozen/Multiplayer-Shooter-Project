@@ -9,6 +9,8 @@
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "Weapon.generated.h"
 
+
+
 USTRUCT(BlueprintType)
 struct FMeshTableRow : public FTableRowBase
 {
@@ -84,26 +86,23 @@ protected:
 	// Third-person weapon mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	TObjectPtr<class USkeletalMeshComponent> TP_Mesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
-	class UAnimSequence* AnimPose;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
 	TObjectPtr<class UAnimMontage> FP_EquipMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
 	TObjectPtr<class UAnimMontage> TP_EquipMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
 	TObjectPtr<class UAnimMontage> FP_ReloadMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
 	TObjectPtr<class UAnimMontage> TP_ReloadMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
 	TObjectPtr<class UAnimMontage> FP_FireMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
 	TObjectPtr<class UAnimMontage> TP_FireMontage;
 
 	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = "true"), Category = "Configurations")
@@ -236,21 +235,29 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	virtual void AttachToWeaponSocket();
 	
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable)
 	void OnObtained(class UInventoryComponent* Inventory);
-	virtual void OnObtained_Implementation(class UInventoryComponent* Inventory);
+	//virtual void OnObtained_Implementation(class UInventoryComponent* Inventory);
+	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Obtained"))
+	void BP_OnObtained(class UInventoryComponent* Inventory);
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable)
 	void OnRemoved(class UInventoryComponent* Inventory);
-	virtual void OnRemoved_Implementation(class UInventoryComponent* Inventory);
+	//virtual void OnRemoved_Implementation(class UInventoryComponent* Inventory);
+	UFUNCTION(BlueprintImplementableEvent, DisplayName = "On Removed")
+	void BP_OnRemoved(class UInventoryComponent* Inventory);
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable)
 	void OnEquipped(class UCharacterInventoryComponent* Inventory);
-	virtual void OnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
+	//virtual void OnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
+	UFUNCTION(BlueprintImplementableEvent, DisplayName = "On Equipped")
+	void BP_OnEquipped(class UCharacterInventoryComponent* Inventory);
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable)
 	void OnUnEquipped(class UCharacterInventoryComponent* Inventory);
-	virtual void OnUnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
+	//virtual void OnUnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
+	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On UnEquipped"))
+	void BP_OnUnEquipped(class UCharacterInventoryComponent* Inventory);
 
 	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_CurrentInventory)
 	class UInventoryComponent* CurrentInventory;
@@ -340,6 +347,32 @@ public:
 
 	FWeaponAmmoUpdated_Static AmmoDelegate_Static;
 	FWeaponAmmoUpdated_Static ReserveAmmoDelegate_Static;
+
+	/*
+	 *	ANIM
+	 */
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
+	class UAnimSequence* FPAnimPose;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
+	class UAnimSequence* TPAnimPose;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Configurations|Anim")
+	FTransform GetFPSightsWorldTransform() const;
+	virtual FORCEINLINE FTransform GetFPSightsWorldTransform_Implementation() const { return FP_Mesh->GetSocketTransform(FName("Sights")); }
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Configurations|Anim")
+	FTransform GetTPSightsWorldTransform() const;
+	virtual FORCEINLINE FTransform GetTPSightsWorldTransform_Implementation() const { return TP_Mesh->GetSocketTransform(FName("Sights")); }
+
+	// Determines weapon sway responsiveness. 1 is normal, 0 is instantaneous
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
+	float WeightScale = 1.f;
+
+	// Determines the distance from the camera to the sights when aiming
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
+	float AimOffset = 15.f;
 	
 protected:
 	/*

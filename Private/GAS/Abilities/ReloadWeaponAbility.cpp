@@ -28,7 +28,15 @@ void UReloadWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorI
 
 	CurrentWeapon = CURRENTWEAPON;
 	if(bReloadOnEnd && ActorInfo->IsNetAuthority())
+	{
+		if(CurrentWeapon->GetAmmo() <= 0)
+			GET_ASC->TryActivateAbility(Spec.Handle);
+		
 		CurrentWeapon->AmmoDelegate.AddDynamic(this, &UReloadWeaponAbility::AmmoChanged);
+		
+		for(TArray<FGameplayTag>::TConstIterator Itr(TAG_CONTAINER({ActivationRequiredTags, ActivationBlockedTags}).CreateConstIterator()); Itr; ++Itr)
+			GET_ASC->RegisterGameplayTagEvent(*Itr, EGameplayTagEventType::AnyCountChange).AddUObject(this, &UReloadWeaponAbility::TagsChanged);
+	}
 }
 
 void UReloadWeaponAbility::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
@@ -36,7 +44,11 @@ void UReloadWeaponAbility::OnRemoveAbility(const FGameplayAbilityActorInfo* Acto
 	Super::OnRemoveAbility(ActorInfo, Spec);
 
 	if(bReloadOnEnd && ActorInfo->IsNetAuthority())
+	{
 		CurrentWeapon->AmmoDelegate.RemoveAll(this);
+		for(TArray<FGameplayTag>::TConstIterator Itr(TAG_CONTAINER({ActivationRequiredTags, ActivationBlockedTags}).CreateConstIterator()); Itr; ++Itr)
+			GET_ASC->RegisterGameplayTagEvent(*Itr, EGameplayTagEventType::AnyCountChange).RemoveAll(this);
+	}
 }
 
 void UReloadWeaponAbility::AmmoChanged_Implementation(const int32 Ammo)
@@ -44,6 +56,13 @@ void UReloadWeaponAbility::AmmoChanged_Implementation(const int32 Ammo)
 	if(Ammo <= 0)
 		GetASC()->TryActivateAbility(CurrentSpecHandle);
 }
+
+void UReloadWeaponAbility::TagsChanged_Implementation(FGameplayTag Tag, int32 Count)
+{
+	if(CurrentWeapon->GetAmmo() <= 0)
+		GetASC()->TryActivateAbility(CurrentSpecHandle);
+}
+
 
 
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const

@@ -46,14 +46,17 @@ void URecoilInstance::Activate_Implementation()
 	RecoilTimeline.AddEvent(RecoilTimeline.GetTimelineLength(), TimelineEvent);
  
 	RecoilTimeline.PlayFromStart();
-	
+
 	TargetTransform = MakeTargetTransform();
+	const float CalculatedMagnitude = CalculateTargetTransformMagnitude();
+	TargetTransform.SetLocation(TargetTransform.GetLocation() * RecoilMultiplier * RecoilMagnitude * CalculatedMagnitude);
+	TargetTransform.SetRotation(TargetTransform.GetRotation() * RecoilMultiplier * RecoilMagnitude * CalculatedMagnitude);
 	
 	TickerDelegate = FTickerDelegate::CreateUObject(this, &URecoilInstance::Tick);
 	TickerDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickerDelegate);
 }
 
-FTransform URecoilInstance::MakeTargetTransform_Implementation()
+FTransform URecoilInstance::MakeTargetTransform_Implementation() const
 {
 	return FTransform(FVector(0.f, 0.f, 10.f) * RecoilMultiplier * RecoilMagnitude);
 }
@@ -89,8 +92,7 @@ void URecoilInstance::TimelineProgress_Implementation(const float Value)
 void URecoilInstance::TimelineEnd_Implementation()
 {
 	// Allow garbage collection
-	RemoveFromRoot();
-	ConditionalBeginDestroy();
+	Destroy();
 	
 	NumInstances--;
 	
@@ -99,7 +101,7 @@ void URecoilInstance::TimelineEnd_Implementation()
 	FTicker::GetCoreTicker().RemoveTicker(TickerDelegateHandle);
 	TickerDelegate.Unbind();
 
-	if(NumInstances <= 0)
+	if(Wielder && NumInstances <= 0)
 		Wielder->FPOffsetTransform = FTransform::Identity;
 
 	PRINT(TEXT("Num Recoil Instances == %i"), NumInstances);
