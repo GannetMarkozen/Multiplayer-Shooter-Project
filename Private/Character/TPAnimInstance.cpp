@@ -48,14 +48,7 @@ void UTPAnimInstance::NativeUpdateAnimation(float DeltaTime)
 
 void UTPAnimInstance::SetVars_Implementation(const float DeltaTime)
 {
-	if(Character->IsLocallyControlled())
-	{
-		CameraTransform = Character->GetCamera()->GetComponentTransform();
-	}
-	else
-	{
-		CameraTransform = FTransform(Character->GetBaseAimRotation(), Character->GetCamera()->GetComponentLocation());
-	}
+	CameraTransform = FTransform(Character->GetBaseAimRotation(), Character->GetCamera()->GetComponentLocation());
 	
 	/*
 	 *	LOCOMOTION VARS
@@ -83,9 +76,10 @@ void UTPAnimInstance::SetVars_Implementation(const float DeltaTime)
 	 *	ACCUMULATIVE OFFSET VARS
 	 */
 
+	constexpr float AngleClamp = 6.f;
 	const FRotator& AddRotation = Character->GetBaseAimRotation() - LastAimRotation;
-	FRotator AddRotationClamped = FRotator(FMath::ClampAngle(AddRotation.Pitch, -25.f, 25.f) * 1.5f,
-		FMath::ClampAngle(AddRotation.Yaw, -25.f, 25.f), 0.f);
+	FRotator AddRotationClamped = FRotator(FMath::ClampAngle(AddRotation.Pitch, -AngleClamp, AngleClamp) * 1.5f,
+		FMath::ClampAngle(AddRotation.Yaw, -AngleClamp, AngleClamp), 0.f);
 	AddRotationClamped.Roll = AddRotationClamped.Yaw * 0.7f;
 
 	AccumulativeRotation += AddRotationClamped;

@@ -26,6 +26,7 @@ AShooterCharacter::AShooterCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetMesh()->SetOwnerNoSee(true);
+	GetMesh()->SetTickGroup(ETickingGroup::TG_PostUpdateWork); // Set this tick group to late to get camera transform during anim
 
 	CameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Spring Arm"));
 	CameraSpringArm->TargetArmLength = 0.f;
