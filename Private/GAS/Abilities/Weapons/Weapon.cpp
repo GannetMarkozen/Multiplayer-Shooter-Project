@@ -21,26 +21,17 @@ AWeapon::AWeapon()
 
 	DefaultScene = CreateDefaultSubobject<USceneComponent>(TEXT("Default Scene"));
 	RootComponent = DefaultScene;
-	
-	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
-	FP_Mesh->SetOnlyOwnerSee(true);
-	FP_Mesh->SetCastShadow(false);
-	FP_Mesh->SetSimulatePhysics(false);
-	FP_Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	FP_Mesh->SetCollisionObjectType(ECC_Pawn);
-	FP_Mesh->SetupAttachment(RootComponent);
 
-	TP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Third Person Mesh"));
-	TP_Mesh->SetOwnerNoSee(true);
-	TP_Mesh->SetSimulatePhysics(false);
-	TP_Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	TP_Mesh->SetCollisionObjectType(ECC_Pawn);
-	TP_Mesh->CanCharacterStepUpOn = ECB_No;
-	TP_Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	TP_Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Overlap);
-	TP_Mesh->SetCollisionResponseToChannel(ECC_ItemDrop, ECR_Ignore);
-	TP_Mesh->SetCollisionResponseToChannel(ECC_Projectile, ECR_Ignore);
-	TP_Mesh->SetupAttachment(RootComponent);
+	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Weapon Mesh"));
+	Mesh->SetSimulatePhysics(false);
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mesh->SetCollisionObjectType(ECC_Pawn);
+	Mesh->CanCharacterStepUpOn = ECB_No;
+	Mesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Overlap);
+	Mesh->SetCollisionResponseToChannel(ECC_ItemDrop, ECR_Ignore);
+	Mesh->SetCollisionResponseToChannel(ECC_Projectile, ECR_Ignore);
+	Mesh->SetupAttachment(DefaultScene);
 	
 	DamageEffect = UDamageEffect::StaticClass();
 }
@@ -93,13 +84,9 @@ void AWeapon::OnEquipped(UCharacterInventoryComponent* Inventory)
 	if(!CurrentOwner)
 		CurrentOwner = CastChecked<AShooterCharacter>(Inventory->GetOwner());
 	
-	if(TP_EquipMontage)
+	if(EquipMontage)
 		if(UAnimInstance* AnimInstance = CurrentOwner->GetMesh()->GetAnimInstance())
-			AnimInstance->Montage_Play(TP_EquipMontage);
-
-	if(CurrentOwner->IsLocallyControlled() && FP_EquipMontage)
-		if(UAnimInstance* AnimInstance = CurrentOwner->GetFP_Mesh()->GetAnimInstance())
-			AnimInstance->Montage_Play(FP_EquipMontage);
+			AnimInstance->Montage_Play(EquipMontage);
 
 	BP_OnEquipped(Inventory);
 }
@@ -179,28 +166,15 @@ void AWeapon::AttachToWeaponSocket()
 	if(!CurrentOwner) return;
 	
 	// Attach weapon mesh to character
-	FP_Mesh->AttachToComponent(CurrentOwner->GetFP_Mesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
-	TP_Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
-
-
-	const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
+	Mesh->AttachToComponent(CurrentOwner->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachmentSocketName);
 	
-	// Set weapon mesh orientation FP && TP
-	if(FP_Mesh->SkeletalMesh && CurrentOwner->FPItemMeshDataTable)
+	if(Mesh->SkeletalMesh && CurrentOwner->ItemMeshDataTable)
 	{
-		if(const FMeshTableRow* MeshRow = CurrentOwner->FPItemMeshDataTable->FindRow<FMeshTableRow>(FP_Mesh->SkeletalMesh->GetFName(), "FPMeshTableRow"))
+		if(const FMeshTableRow* MeshRow = CurrentOwner->ItemMeshDataTable->FindRow<FMeshTableRow>(Mesh->SkeletalMesh->GetFName(), "MeshTableRow on AWeapon"))
 		{
+			const AWeapon* DefObj = (AWeapon*)GetClass()->GetDefaultObject();
 			const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
-			FP_Mesh->SetRelativeTransform(DefObj->FP_Mesh->GetRelativeTransform() * RelativeTransform);
-		}
-	}
-
-	if(TP_Mesh->SkeletalMesh && CurrentOwner->TPItemMeshDataTable)
-	{
-		if(const FMeshTableRow* MeshRow = CurrentOwner->TPItemMeshDataTable->FindRow<FMeshTableRow>(TP_Mesh->SkeletalMesh->GetFName(), "TPMeshTableRow"))
-		{
-			const FTransform RelativeTransform(MeshRow->RelativeRotation, MeshRow->RelativeLocation);
-			TP_Mesh->SetRelativeTransform(DefObj->TP_Mesh->GetRelativeTransform() * RelativeTransform);
+			Mesh->SetRelativeTransform(DefObj->Mesh->GetRelativeTransform() * RelativeTransform);
 		}
 	}
 }

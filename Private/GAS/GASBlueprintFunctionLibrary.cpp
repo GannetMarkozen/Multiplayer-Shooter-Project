@@ -79,20 +79,4 @@ const FGameplayEffectSpec& UGASBlueprintFunctionLibrary::MakeRuntimeGEWithOverri
 	return *new FGameplayEffectSpec(GameplayEffect, {}, 1.f);
 }
 
-void UGASBlueprintFunctionLibrary::CalculateAimTargetTransform(FTransform& OutTargetTransform, AShooterCharacter* Character, const FName& SightsName, const float SightsDistance)
-{
-	if(!Character) return;
-	
-	const AWeapon* CurrentWeapon = Character->GetCharacterInventory()->GetCurrentWeapon();
-	if(!CurrentWeapon) return;
-	/*
-	OutTargetTransform = Character->GetFP_Mesh()->GetComponentTransform().GetRelativeTransform(CurrentWeapon->GetFP_Mesh()->GetSocketTransform(SightsName, RTS_World)) *
-		FTransform(FVector(SightsDistance, 0.f, 0.f));
-	*/
-
-	OutTargetTransform = Character->GetFP_Mesh()->GetComponentTransform().GetRelativeTransform(CurrentWeapon->GetFP_Mesh()->GetSocketTransform(SightsName)) *
-		FTransform(FVector(SightsDistance, 0.f, 0.f));
-	
-}
-
 

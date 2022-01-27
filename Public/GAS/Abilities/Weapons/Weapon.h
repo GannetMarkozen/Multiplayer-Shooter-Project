@@ -77,78 +77,65 @@ protected:
 
 	// Idk
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	TObjectPtr<class USceneComponent> DefaultScene;
+	class USceneComponent* DefaultScene;
 
-	// First-person weapon mesh
+	// Weapon mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	TObjectPtr<class USkeletalMeshComponent> FP_Mesh;
+	class USkeletalMeshComponent* Mesh;
 
-	// Third-person weapon mesh
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	TObjectPtr<class USkeletalMeshComponent> TP_Mesh;
+	UPROPERTY(EditAnywhere, Category = "Configurations|Anim")
+	class UAnimMontage* EquipMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Configurations|Anim")
+	class UAnimMontage* ReloadMontage;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
-	TObjectPtr<class UAnimMontage> FP_EquipMontage;
+	UPROPERTY(EditAnywhere, Category = "Configurations|Anim")
+	class UAnimMontage* FireMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
-	TObjectPtr<class UAnimMontage> TP_EquipMontage;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
-	TObjectPtr<class UAnimMontage> FP_ReloadMontage;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
-	TObjectPtr<class UAnimMontage> TP_ReloadMontage;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
-	TObjectPtr<class UAnimMontage> FP_FireMontage;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations|Anim")
-	TObjectPtr<class UAnimMontage> TP_FireMontage;
-
-	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = "true"), Category = "Configurations")
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"), Category = "Configurations")
 	TArray<TSubclassOf<class UGASGameplayAbility>> WeaponAbilities;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	TSubclassOf<class UGameplayEffect> DamageEffect;
 
 	// The base damage that all damage calculations are based off of
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	int32 BaseDamage = 15;
 
 	// This should be lowered if projectile weapon or melee weapon
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float Range = 50000.f;
 
 	// The max range that the damage calculation uses as its metric
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float EffectiveRange = 3500.f;
 
 	// The cooldown inbetween shots
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float RateOfFire = 0.1f;
 
 	// The cooldown during reloading
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float ReloadDuration = 1.f;
 
 	// The duration of swapping weapons
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float WeaponSwapDuration = 1.f;
 
 	// Number of shots per execution. Multiple for things like shotguns.
-	UPROPERTY(EditDefaultsOnly, Category = "Configurations")
+	UPROPERTY(EditAnywhere, Category = "Configurations")
 	int32 NumShots = 1;
 
 	// The type of damage this weapon deals
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "Data.DamageType"), Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (Categories = "Data.DamageType"), Category = "Configurations")
 	FGameplayTag DamageType = TAG("Data.DamageType.Bullet");
 
 	// Any extra specifiers for damage calculation like Data.CanHeadshot
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "Data"), Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (Categories = "Data"), Category = "Configurations")
 	FGameplayTagContainer DamageCalculationTags = TAG_CONTAINER("Data.CanHeadshot");
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
-	FName WeaponAttachmentSocketName;;
+	FName WeaponAttachmentSocketName;
 	
 public:
 	/*
@@ -166,32 +153,18 @@ public:
 	/*
 	 * Getters
 	 */
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class USkeletalMeshComponent* GetFP_Mesh() const { return FP_Mesh; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class USkeletalMeshComponent* GetTP_Mesh() const { return TP_Mesh; }
+	FORCEINLINE class USkeletalMeshComponent* GetMesh() const { return Mesh; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE TArray<class USkeletalMeshComponent*> GetMeshes() const { return {FP_Mesh, TP_Mesh}; }
+	FORCEINLINE class UAnimMontage* GetEquipMontage() const { return EquipMontage; }
 	
 	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetFP_EquipMontage() const { return FP_EquipMontage; }
+	FORCEINLINE class UAnimMontage* GetReloadMontage() const { return ReloadMontage; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetTP_EquipMontage() const { return TP_EquipMontage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetFP_ReloadMontage() const { return FP_ReloadMontage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetTP_ReloadMontage() const { return TP_ReloadMontage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetFP_FireMontage() const { return FP_FireMontage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetTP_FireMontage() const { return TP_FireMontage; }
+	FORCEINLINE class UAnimMontage* GetFireMontage() const { return FireMontage; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE float GetRateOfFire() const { return RateOfFire; }
@@ -286,8 +259,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	FORCEINLINE void SetVisibility(const bool bIsVisible) const
 	{
-		TP_Mesh->SetVisibility(bIsVisible);
-		FP_Mesh->SetVisibility(bIsVisible);
+		Mesh->SetVisibility(bIsVisible);
 	}
 	
 	UFUNCTION(BlueprintPure, Category = "Weapon")
@@ -353,18 +325,15 @@ public:
 	 */
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
-	class UAnimSequence* FPAnimPose;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
-	class UAnimSequence* TPAnimPose;
+	class UAnimSequence* AnimPose;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Configurations|Anim")
-	FTransform GetFPSightsWorldTransform() const;
-	virtual FORCEINLINE FTransform GetFPSightsWorldTransform_Implementation() const { return FP_Mesh->GetSocketTransform(FName("Sights")); }
+	FTransform GetSightsWorldTransform() const;
+	virtual FORCEINLINE FTransform GetSightsWorldTransform_Implementation() const { return Mesh->GetSocketTransform(FName("Sights")); }
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Configurations|Anim")
-	FTransform GetTPSightsWorldTransform() const;
-	virtual FORCEINLINE FTransform GetTPSightsWorldTransform_Implementation() const { return TP_Mesh->GetSocketTransform(FName("Sights")); }
+	// The offset from the weapon's AnimPose of the weapon when not aiming relative to the sights
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
+	FTransform CustomWeaponOffsetTransform;
 
 	// Determines weapon sway responsiveness. 1 is normal, 0 is instantaneous
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
@@ -373,6 +342,9 @@ public:
 	// Determines the distance from the camera to the sights when aiming
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
 	float AimOffset = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
+	TSubclassOf<class URecoilInstance> RecoilInstanceClass;
 	
 protected:
 	/*

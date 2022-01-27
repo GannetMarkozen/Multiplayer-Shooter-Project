@@ -4,17 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
-#include "TPAnimInstance.generated.h"
+#include "TrueFPSAnimInstance.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class MULTIPLAYERSHOOTER_API UTPAnimInstance : public UAnimInstance
+class MULTIPLAYERSHOOTER_API UTrueFPSAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
 public:
-	UTPAnimInstance();
+	UTrueFPSAnimInstance();
 
 protected:
 	virtual void NativeBeginPlay() override;
@@ -36,6 +36,14 @@ protected:
 	virtual void SetVars_Implementation(const float DeltaTime);
 
 	virtual void CalculateWeaponSway(const float DeltaTime);
+
+	UFUNCTION(BlueprintCallable, Category = "Anim")
+	virtual void OnCharacterLanded(class AShooterCharacter* InCharacter, const FHitResult& Hit);
+
+	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Character Landed"), Category = "Anim")
+	void BP_OnCharacterLanded(class AShooterCharacter* InCharacter, const FHitResult& Hit);
+	
+	
 
 public:
 	/*
@@ -61,26 +69,35 @@ public:
 	 *	IK
 	 */
 
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
 	FTransform RHandToSightsTransform;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
 	FTransform RelativeCameraTransform;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
 	FTransform OffsetTransform;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
 	float ADSMagnitude = 0.f;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Anim|IK")
+	float CurrentWeightScale = 1.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
+	FTransform CurrentCustomWeaponOffsetTransform;
 
 	/*
 	 *	BASIC LOCOMOTION
 	 */
 	
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|Locomotion")
 	float MovementDirection = 0.f;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|Locomotion")
+	float MovementVelocity = 0.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|Locomotion")
 	bool bIsFalling = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Anim|Locomotion")

@@ -28,7 +28,7 @@ AWeaponPickup* AWeaponPickup::SpawnWeaponPickup(AWeapon* Weapon, const FVector& 
 		Weapon->GetCurrentOwner(), ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
 	
 	Pickup->Weapon = Weapon;
-	Pickup->SetSkeletalMesh(Weapon->GetFP_Mesh()->SkeletalMesh.Get());
+	Pickup->SetSkeletalMesh(Weapon->GetMesh()->SkeletalMesh.Get());
 	
 	if(OptionalVelocity != FVector())
 		Pickup->OverlapSphere->AddImpulse(OptionalVelocity);
@@ -64,17 +64,14 @@ void AWeaponPickup::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 	
 	if(PropertyChangedEvent.Property == FindFProperty<FProperty>(StaticClass(), GET_MEMBER_NAME_CHECKED(AWeaponPickup, WeaponClass)))
 	{
-		Mesh->SetSkeletalMesh(WeaponClass ? WeaponClass.GetDefaultObject()->GetTP_Mesh()->SkeletalMesh : nullptr);
+		Mesh->SetSkeletalMesh(WeaponClass ? WeaponClass.GetDefaultObject()->GetMesh()->SkeletalMesh : nullptr);
 	}
 }
 
 void AWeaponPickup::OnRep_Weapon_Implementation()
 {
 	if(Weapon)
-	{
-		Weapon->GetFP_Mesh()->SetVisibility(false);
-		Weapon->GetTP_Mesh()->SetVisibility(false);
-	}
+		Weapon->GetMesh()->SetVisibility(false);
 }
 
 

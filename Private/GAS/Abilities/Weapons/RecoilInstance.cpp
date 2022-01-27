@@ -103,8 +103,6 @@ void URecoilInstance::TimelineEnd_Implementation()
 
 	if(Wielder && NumInstances <= 0)
 		Wielder->FPOffsetTransform = FTransform::Identity;
-
-	PRINT(TEXT("Num Recoil Instances == %i"), NumInstances);
 }
 
 

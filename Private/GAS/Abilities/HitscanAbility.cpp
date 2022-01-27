@@ -126,7 +126,8 @@ void UHitscanAbility::Server_ReceivedEvent_Implementation() const
 		CurrentWeapon->UpdateClientAmmo();
 		return;
 	}
-	
+
+	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastFiringCue, CurrentActivationInfo.GetActivationPredictionKey(), GetASC()->MakeEffectContext());
 	GetASC()->AddLooseGameplayTagForDurationSingle(FiringStateTag, CurrentWeapon->GetRateOfFire());
 	OnFire(CurrentWeapon);
 }
@@ -152,7 +153,6 @@ void UHitscanAbility::Server_ReceivedTargetData_Implementation(const FGameplayAb
 	Spec.Data.Get()->DynamicAssetTags.AppendTags(GetInventory()->GetCurrentWeapon()->GetDamageCalculationTags());
 
 	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastImpactCue, CurrentActivationInfo.GetActivationPredictionKey(), Context);
-	GetASC()->NetMulticast_InvokeGameplayCueExecuted(NetMulticastFiringCue, CurrentActivationInfo.GetActivationPredictionKey(), GetASC()->MakeEffectContext());
 
 	TArray<AActor*> Targets;
 	for(const TSharedPtr<FGameplayAbilityTargetData>& Data : GAS::FilterTargetData<FGameplayAbilityTargetData_SingleTargetHit>(Handle).Data)

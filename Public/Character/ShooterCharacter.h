@@ -14,6 +14,7 @@
 #include "ShooterCharacter.generated.h"
 
 //DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FChangedWeapons, class AWeapon*, NewWeapon, const class AWeapon*, OldWeapon);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FLandedMulticast, class AShooterCharacter*, Character, const FHitResult&, Hit);
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API AShooterCharacter : public ACharacter, public IAbilitySystemInterface, public IInventoryInterface, public IDamageInterface
@@ -39,23 +40,18 @@ public:
 	virtual FORCEINLINE class UInventoryComponent* GetInventory_Implementation() override { return Inventory; }
 
 protected:
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
-	TObjectPtr<class USpringArmComponent> CameraSpringArm;
+	// Only visible or exists locally. 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
+	class USkeletalMeshComponent* ClientMesh;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
+	class USpringArmComponent* CameraSpringArm;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
-	TObjectPtr<class UCameraComponent> Camera;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
-	TObjectPtr<class USkeletalMeshComponent> FP_Mesh;
+	class UCameraComponent* Camera;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
-	TObjectPtr<class UGASAbilitySystemComponent> ASC;
-
-	UPROPERTY()
-	TObjectPtr<class UCharacterAttributeSet> CharacterSet;
-
-	UPROPERTY()
-	TObjectPtr<class UAmmoAttributeSet> AmmoSet;
+	class UGASAbilitySystemComponent* ASC;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
 	TObjectPtr<class UCharacterInventoryComponent> Inventory;
@@ -90,11 +86,22 @@ protected:
 	FTimerHandle DelayEquipHandle;
 	
 public:
+	/*
+	 *	ATTRIBUTE SETS
+	 */
+	
+	UPROPERTY(BlueprintReadWrite)
+	class UCharacterAttributeSet* CharacterSet;
+
+	UPROPERTY(BlueprintReadWrite)
+	class UAmmoAttributeSet* AmmoSet;
+
+	/*
+	 *	GETTERS
+	 */
+	
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class UGASAbilitySystemComponent* GetASC() const { return ASC; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class USkeletalMeshComponent* GetFP_Mesh() const { return FP_Mesh; }
 
 	// The class this shooter character is (gameplay class)
 	UFUNCTION(BlueprintPure, Category = "Getters")
@@ -114,6 +121,10 @@ public:
 	virtual void Die(const FGameplayEffectSpecHandle& OptionalSpec);
 
 protected:
+	/*
+	 *	HEALTH / DEATH IMPLEMENTATIONS
+	 */
+	
 	// Called when health changed
 	virtual void HealthChanged(const FOnAttributeChangeData& Data);
 
@@ -149,6 +160,10 @@ protected:
 	TSubclassOf<class UGameplayEffect> DeathEffectClass;
 	
 public:
+	/*
+	 *	HUD
+	 */
+	
 	// Update HUD
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Meta = (AutoCreateRefTerm = "ReserveAmmoText"), Category = "HUD")
 	void SetReserveAmmoText(const FText& ReserveAmmoText);
@@ -179,8 +194,26 @@ public:
 	FTransform FPOffsetTransform;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations|Anim")
-	class UDataTable* FPItemMeshDataTable;
+	class UDataTable* ItemMeshDataTable;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations|Anim")
-	class UDataTable* TPItemMeshDataTable;
+	// Called whenever landed and multicasted
+	UPROPERTY(BlueprintAssignable, Category = "Delegates")
+	FLandedMulticast LandedMultiDelegate;
+
+protected:
+	virtual FORCEINLINE void Landed(const FHitResult& Hit) override
+	{
+		Super::Landed(Hit);
+		LandedMultiDelegate.Broadcast(this, Hit);
+		if(HasAuthority() && LandedMultiDelegate.IsBound())
+			Multi_Landed(Hit);
+	}
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multi_Landed(const FHitResult& Hit);
+	virtual FORCEINLINE void Multi_Landed_Implementation(const FHitResult& Hit)
+	{
+		if(!IsLocallyControlled())
+			LandedMultiDelegate.Broadcast(this, Hit);
+	}
 };

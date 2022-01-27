@@ -87,7 +87,7 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		// Add reloading tags on both server and client
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
-			if(CurrentWeapon->GetTP_EquipMontage())
+			if(CurrentWeapon->GetEquipMontage())
 				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastReloadingCue, ActivationInfo.GetActivationPredictionKey(), Params);
 
 			// If server, add reload state and at the end call the callback delegate that sets the ammo
@@ -123,8 +123,8 @@ void UReloadWeaponAbility::Client_PredictionFailed_Implementation(const FGamepla
 {
 	Super::Client_PredictionFailed_Implementation(ActorInfo);
 	
-	if(UAnimInstance* AnimInstance = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
-		AnimInstance->Montage_Stop(0.f, CurrentWeapon ? CurrentWeapon->GetFP_ReloadMontage() : nullptr);
+	if(UAnimInstance* AnimInstance = ActorInfo.Character.Get()->GetMesh()->GetAnimInstance())
+		AnimInstance->Montage_Stop(0.f, CurrentWeapon ? CurrentWeapon->GetReloadMontage() : nullptr);
 }
 
 void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -132,8 +132,8 @@ void UReloadWeaponAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 	
 	if(bWasCancelled && !ActorInfo->IsNetAuthority())
-		if(UAnimInstance* AnimInstance = CHARACTER->GetFP_Mesh()->GetAnimInstance())
-			AnimInstance->Montage_Stop(0.f, CurrentWeapon ? CurrentWeapon->GetFP_ReloadMontage() : nullptr);
+		if(UAnimInstance* AnimInstance = CHARACTER->GetMesh()->GetAnimInstance())
+			AnimInstance->Montage_Stop(0.f, CurrentWeapon ? CurrentWeapon->GetReloadMontage() : nullptr);
 }
 
 

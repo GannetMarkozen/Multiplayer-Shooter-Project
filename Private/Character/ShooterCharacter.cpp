@@ -24,18 +24,22 @@
 AShooterCharacter::AShooterCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
-	GetMesh()->SetOwnerNoSee(true);
+	
+	GetMesh()->bCastHiddenShadow = true;
+	GetMesh()->bVisibleInReflectionCaptures = true;
 	GetMesh()->SetTickGroup(ETickingGroup::TG_PostUpdateWork); // Set this tick group to late to get camera transform during anim
+
+	ClientMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Client Mesh"));
+	ClientMesh->SetCastShadow(false);
+	ClientMesh->bCastHiddenShadow = false;
+	ClientMesh->bVisibleInReflectionCaptures = false;
+	ClientMesh->SetTickGroup(ETickingGroup::TG_PostUpdateWork);
+	ClientMesh->SetupAttachment(GetMesh(), FName("root"));
 
 	CameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Spring Arm"));
 	CameraSpringArm->TargetArmLength = 0.f;
 	CameraSpringArm->bUsePawnControlRotation = true;
-	CameraSpringArm->SetupAttachment(RootComponent);
-
-	FP_Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
-	FP_Mesh->SetOnlyOwnerSee(true);
-	FP_Mesh->SetupAttachment(CameraSpringArm);
+	CameraSpringArm->SetupAttachment(GetMesh(), FName("head"));
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->bUsePawnControlRotation = false;
@@ -57,19 +61,29 @@ void AShooterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if(IsLocallyControlled())
+	{
+		ClientMesh->HideBoneByName(FName("neck_01"), EPhysBodyOp::PBO_None);
+		GetMesh()->SetVisibility(false);
+	}
+	else
+	{
+		ClientMesh->DestroyComponent();
+	}
+
 	// Reset recoil instances
 	URecoilInstance::NumInstances = 0;
 	
 	if(HasAuthority())
 		ASC->GetGameplayAttributeValueChangeDelegate(UCharacterAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
+	
 }
 
 
 void AShooterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-
+	
 }
 
 void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -83,7 +97,7 @@ void AShooterCharacter::PreReplication(IRepChangedPropertyTracker& ChangedProper
 {
 	Super::PreReplication(ChangedPropertyTracker);
 
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AShooterCharacter, ADSValue, ADSValue <= 0.f || ADSValue >= 1.f);
+	//DOREPLIFETIME_ACTIVE_OVERRIDE(AShooterCharacter, ADSValue, ADSValue <= 0.f || ADSValue >= 1.f);
 }
 
 
@@ -103,6 +117,7 @@ void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		ASC->BindAbilityActivationToInputComponent(InputComponent, Binds);
 	}
 }
+
 
 void AShooterCharacter::PossessedBy(AController* NewController)
 {
@@ -141,7 +156,7 @@ void AShooterCharacter::InitializeAbilities()
 		if(IsValid(DefaultAbilities[i]))
 		{
 			const FGameplayAbilitySpec AbilitySpec(DefaultAbilities[i], 1, static_cast<int32>(DefaultAbilities[i].GetDefaultObject()->Input), this);
-			const FGameplayAbilitySpecHandle& Handle = ASC->GiveAbility(AbilitySpec);
+			/*const FGameplayAbilitySpecHandle& Handle = */ASC->GiveAbility(AbilitySpec);
 		}
 	}
 
@@ -165,37 +180,6 @@ void AShooterCharacter::InitializeAttributes()
 		}
 	}
 }
-/*
-void AShooterCharacter::OnRep_Weapon_Implementation(const AWeapon* LastWeapon)
-{
-	if(LastWeapon)
-	{
-		LastWeapon->SetVisibility(false);
-		
-		if(HasAuthority())
-			Inventory->RemoveAbilities();
-	}
-	if(CurrentWeapon)
-	{
-		CurrentWeapon->SetVisibility(true);
-
-		// Play third person equip montage to all instances
-		if(UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
-			if(UAnimMontage* Montage = CurrentWeapon->GetTP_EquipMontage())
-				AnimInstance->Montage_Play(Montage);
-
-		// If locally controlled, play first person equip montage
-		if(IsLocallyControlled())
-			if(UAnimInstance* AnimInstance = GetFP_Mesh()->GetAnimInstance())
-				if(UAnimMontage* Montage = CurrentWeapon->GetFP_EquipMontage())
-					AnimInstance->Montage_Play(Montage);
-
-		if(HasAuthority())
-			Inventory->GiveAbilities(CurrentWeapon);
-	}
-	
-	ChangedWeaponsDelegate.Broadcast(CurrentWeapon, LastWeapon);
-}*/
 
 
 void AShooterCharacter::Die(const FGameplayEffectSpecHandle& OptionalSpec)

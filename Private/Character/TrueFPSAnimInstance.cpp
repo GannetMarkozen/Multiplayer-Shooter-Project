@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Character/TPAnimInstance.h"
+#include "Character/TrueFPSAnimInstance.h"
 
 #include "Camera/CameraComponent.h"
 #include "Character/ShooterCharacter.h"
@@ -10,17 +10,17 @@
 #include "Kismet/KismetMathLibrary.h"
 
 
-UTPAnimInstance::UTPAnimInstance()
+UTrueFPSAnimInstance::UTrueFPSAnimInstance()
 {
 	
 }
 
-void UTPAnimInstance::NativeBeginPlay()
+void UTrueFPSAnimInstance::NativeBeginPlay()
 {
 	Super::NativeBeginPlay();
 }
 
-void UTPAnimInstance::NativeUpdateAnimation(float DeltaTime)
+void UTrueFPSAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeUpdateAnimation(DeltaTime);
 
@@ -46,15 +46,29 @@ void UTPAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	LastVelocity = Character->GetCharacterMovement()->Velocity;
 }
 
-void UTPAnimInstance::SetVars_Implementation(const float DeltaTime)
+void UTrueFPSAnimInstance::SetVars_Implementation(const float DeltaTime)
 {
-	CameraTransform = FTransform(Character->GetBaseAimRotation(), Character->GetCamera()->GetComponentLocation());
+	if(Character->IsLocallyControlled())
+	{
+		CameraTransform = Character->GetCamera()->GetComponentTransform();
+	}
+	else
+	{
+		// Clamp pitch to prevent weird yaw rotation glitch on simulated proxies
+		static constexpr float ClampAngle = 89.9f;
+		FRotator ClampedBaseAimRotation = Character->GetBaseAimRotation();
+		ClampedBaseAimRotation.Pitch = FMath::ClampAngle(ClampedBaseAimRotation.Pitch, -ClampAngle, ClampAngle);
+        	
+		CameraTransform = FTransform(ClampedBaseAimRotation, Character->GetCamera()->GetComponentLocation());
+	}
 	
 	/*
 	 *	LOCOMOTION VARS
 	 */
 
-	MovementDirection = CalculateDirection(Character->GetCharacterMovement()->Velocity, Character->GetBaseAimRotation());
+	MovementDirection = CalculateDirection(Character->GetCharacterMovement()->Velocity, FRotator(0.f, Character->GetBaseAimRotation().Yaw, 0.f));
+
+	MovementVelocity = Character->GetCharacterMovement()->Velocity.Size();
 
 	bIsFalling = Character->GetCharacterMovement()->IsFalling();
 
@@ -102,19 +116,11 @@ void UTPAnimInstance::SetVars_Implementation(const float DeltaTime)
 	VelocityInterp = UKismetMathLibrary::VInterpTo(VelocityInterp, VelocityTarget, DeltaTime, 3.f);
 }
 
-void UTPAnimInstance::CalculateWeaponSway(const float DeltaTime)
+void UTrueFPSAnimInstance::CalculateWeaponSway(const float DeltaTime)
 {
 	// Add onto offsets and then apply onto offset transform for IK
 	FVector OffsetLocation = FVector::ZeroVector;
 	FRotator OffsetRotation = FRotator::ZeroRotator;
-
-	// Apply idle vector curve anim to offset location
-	if(IdleWeaponSwayCurve)
-		OffsetLocation += IdleWeaponSwayCurve->GetVectorValue(GetWorld()->GetTimeSeconds()) * 8.f * FMath::Max<float>(1.f - ADSMagnitude, 0.1f);
-
-	// Apply movement offset to offset location
-	if(MovementWeaponSwayCurve)
-		OffsetLocation += MovementWeaponSwayCurve->GetVectorValue(MovementWeaponSwayProgressTime) * (MovementSpeedInterp / MaxMoveSpeed) * 5.f * FMath::Max<float>(1.f - ADSMagnitude, 0.1f);
 
 	// Get inverse to apply the opposite of the rotational influence to the weapon sway
 	const FRotator& AccumulativeRotationInterpInverse = AccumulativeRotationInterp.GetInverse();
@@ -123,8 +129,8 @@ void UTPAnimInstance::CalculateWeaponSway(const float DeltaTime)
 	OffsetLocation += FVector(0.f, AccumulativeRotationInterpInverse.Yaw, AccumulativeRotationInterpInverse.Pitch) / 6.f;
 
 	// Apply location offset from interp orientation velocity
-	const FVector& OrientationVelocityInterp = VelocityInterp.RotateAngleAxis(Character->GetControlRotation().Yaw, FVector(0.f, 0.f, 1.f));
-	const FVector& MovementOffset = (-OrientationVelocityInterp / MaxMoveSpeed) * FMath::Max<float>(1.f - ADSMagnitude, 0.6f);
+	const FVector& OrientationVelocityInterp = (FRotator(0.f, CameraTransform.Rotator().Yaw, 0.f) - VelocityInterp.Rotation()).Vector() * VelocityInterp.Size() * FVector(1.f, -1.f, 1.f);
+	const FVector& MovementOffset = (OrientationVelocityInterp / MaxMoveSpeed) * FMath::Max<float>(1.f - ADSMagnitude, 0.6f);
 	OffsetLocation += MovementOffset;
 
 	// Add accumulative rotation
@@ -132,38 +138,64 @@ void UTPAnimInstance::CalculateWeaponSway(const float DeltaTime)
 
 	// Add movement offset to rotation
 	OffsetRotation += FRotator(MovementOffset.Z * 5.f, MovementOffset.Y, MovementOffset.Y * 2.f);
+
+	// Apply weight scale of weapon to offsets before weapon sway curves
+	OffsetLocation *= CurrentWeightScale;
+	OffsetRotation.Pitch *= CurrentWeightScale;
+	OffsetRotation.Yaw *= CurrentWeightScale;
+	OffsetRotation.Roll *= CurrentWeightScale;
+
+	// Apply idle vector curve anim to offset location
+	if(IdleWeaponSwayCurve)
+		OffsetLocation += IdleWeaponSwayCurve->GetVectorValue(GetWorld()->GetTimeSeconds()) * 8.f * FMath::Max<float>(1.f - ADSMagnitude, 0.1f);
+
+	// Apply movement offset to offset location
+	if(MovementWeaponSwayCurve)
+		OffsetLocation += MovementWeaponSwayCurve->GetVectorValue(MovementWeaponSwayProgressTime) * (MovementSpeedInterp / MaxMoveSpeed) * 5.f * FMath::Max<float>(1.f - ADSMagnitude, 0.1f);
 	
 	OffsetTransform = Character->FPOffsetTransform * FTransform(OffsetRotation, OffsetLocation, FVector(1.f));
 	//UE_LOG(LogTemp, Warning, TEXT("OffsetTransform == %s"), *FTransform(OffsetRotation, OffsetLocation, FVector(1.f)).ToString());
 }
 
 
-void UTPAnimInstance::Init()
+void UTrueFPSAnimInstance::Init()
 {
 	Mesh = Character->GetMesh();
 
-	Character->GetCharacterInventory()->CurrentWeaponChangeDelegate.AddDynamic(this, &UTPAnimInstance::WeaponChanged);
+	Character->GetCharacterInventory()->CurrentWeaponChangeDelegate.AddDynamic(this, &UTrueFPSAnimInstance::WeaponChanged);
+	Character->LandedMultiDelegate.AddDynamic(this, &UTrueFPSAnimInstance::OnCharacterLanded);
 
 	if(AWeapon* NewWeapon = Character->GetCurrentWeapon())
 		WeaponChanged(NewWeapon, nullptr);
 }
 
-void UTPAnimInstance::WeaponChanged_Implementation(AWeapon* NewWeapon, const AWeapon* OldWeapon)
+void UTrueFPSAnimInstance::WeaponChanged_Implementation(AWeapon* NewWeapon, const AWeapon* OldWeapon)
 {
 	CurrentWeapon = NewWeapon;
 	if(!CurrentWeapon) return;
 
-	if(UAnimSequence* NewPose = CurrentWeapon->TPAnimPose)
+	if(UAnimSequence* NewPose = CurrentWeapon->AnimPose)
 		AnimPose = NewPose;
 
-	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &UTPAnimInstance::SetIKTransforms);
+	CurrentWeightScale = CurrentWeapon->WeightScale;
+	
+	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &UTrueFPSAnimInstance::SetIKTransforms);
 }
 
-void UTPAnimInstance::SetIKTransforms()
+void UTrueFPSAnimInstance::OnCharacterLanded(AShooterCharacter* InCharacter, const FHitResult& Hit)
 {
-	RHandToSightsTransform = CurrentWeapon->GetTPSightsWorldTransform().GetRelativeTransform(Mesh->GetSocketTransform(FName("hand_r")));
+	
+	BP_OnCharacterLanded(InCharacter, Hit);
+}
 
+
+void UTrueFPSAnimInstance::SetIKTransforms()
+{
+	RHandToSightsTransform = CurrentWeapon->GetSightsWorldTransform().GetRelativeTransform(Mesh->GetSocketTransform(FName("hand_r")));
+
+	// Init vars
 	CurrentAimPointOffset = CurrentWeapon->AimOffset;
+	CurrentCustomWeaponOffsetTransform = CurrentWeapon->CustomWeaponOffsetTransform;
 	
 	//RHandToSightsTransform = CurrentWeapon->GetTP_Mesh()->GetSocketTransform(SightsSocketName).GetRelativeTransform(Mesh->GetSocketTransform("hand_r"));
 

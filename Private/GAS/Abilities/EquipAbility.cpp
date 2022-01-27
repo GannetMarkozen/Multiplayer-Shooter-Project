@@ -93,7 +93,7 @@ void UEquipAbility::Client_PredictionFailed_Implementation(const FGameplayAbilit
 	// Sets current equipped weapon to last equipped index and stops all anim montages
 	//ActorInfo.Inventory.Get()->SetCurrentIndex(ActorInfo.Inventory.Get()->GetLastIndex());
 	Equip(ActorInfo.Inventory.Get()->GetLastIndex(), ActorInfo);
-	if(UAnimInstance* Anim = ActorInfo.Character.Get()->GetFP_Mesh()->GetAnimInstance())
+	if(UAnimInstance* Anim = ActorInfo.Character.Get()->GetMesh()->GetAnimInstance())
 		Anim->Montage_Stop(0.f);
 }
 
