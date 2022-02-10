@@ -38,6 +38,13 @@ void UCharacterInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimePr
 	DOREPLIFETIME_CONDITION_NOTIFY(UCharacterInventoryComponent, CurrentWeapon, COND_None, REPNOTIFY_OnChanged);
 }
 
+void UCharacterInventoryComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+}
+
+
 int32 UCharacterInventoryComponent::AddItems(const TArray<AWeapon*>& NewWeapons)
 {
 	const int32 NumAdded = Super::AddItems(NewWeapons);

@@ -66,6 +66,7 @@ enum class EAbilityInput : uint8
 	MWheelUp,
 	MWheelDown,
 	MWheelPressed,
+	Sprint,
 };
 
 UCLASS()
@@ -116,11 +117,17 @@ public:
 
 #define AUTHTOSTRING(bAuth) FString(bAuth ? "Server" : "Client")
 
+#define AUTH FString(HasAuthority() ? "Server" : "Client")
+
 #define PRINT(...) if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, FColor::White, FString::Printf(##__VA_ARGS__))
 
 #define PRINTCOLOR(Color, ...) if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, Color, FString::Printf(##__VA_ARGS__))
 
-#define PRINTLINE PRINT(TEXT("%s"), *FString(__FUNCTION__))
+//#define PRINTLINE PRINT(TEXT("%s"), *FString(__FUNCTION__))
+#define PRINTLINE if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, FColor::White, FString(__FUNCTION__))
+
+//#define PRINTLINEAUTH PRINT(TEXT("%s: %s"), *AUTH, *FString(__FUNCTION__)
+#define PRINTLINEAUTH if(GEngine) GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.f, FColor::White, FString::Printf(TEXT("%s: %s"), *FString(HasAuthority() ? "Server" : "Client"), *FString(__FUNCTION__)))
 
 #define TAG(TagName) FGameplayTag::RequestGameplayTag(FName(TagName))
 

@@ -34,16 +34,11 @@ AShooterCharacter::AShooterCharacter()
 	ClientMesh->bCastHiddenShadow = false;
 	ClientMesh->bVisibleInReflectionCaptures = false;
 	ClientMesh->SetTickGroup(ETickingGroup::TG_PostUpdateWork);
-	ClientMesh->SetupAttachment(GetMesh(), FName("root"));
-
-	CameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Camera Spring Arm"));
-	CameraSpringArm->TargetArmLength = 0.f;
-	CameraSpringArm->bUsePawnControlRotation = true;
-	CameraSpringArm->SetupAttachment(GetMesh(), FName("head"));
+	//ClientMesh->SetupAttachment(GetMesh(), FName("root"));
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	Camera->bUsePawnControlRotation = false;
-	Camera->SetupAttachment(CameraSpringArm);
+	Camera->bUsePawnControlRotation = true;
+	Camera->SetupAttachment(GetMesh(), FName("head"));
 
 	ASC = CreateDefaultSubobject<UGASAbilitySystemComponent>(TEXT("Ability System Component"));
 	ASC->SetIsReplicated(true);
@@ -61,6 +56,19 @@ void AShooterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Init aiming timeline
+	if(AimingCurve)
+	{
+		FOnTimelineFloatStatic TimelineFloat;
+		TimelineFloat.BindUObject(this, &AShooterCharacter::AimingTimelineProgress);
+		AimingTimeline.AddInterpFloat(AimingCurve, TimelineFloat);
+
+		FOnTimelineEventStatic TimelineEvent;
+		TimelineEvent.BindUObject(this, &AShooterCharacter::AimingTimelineEvent);
+		AimingTimeline.SetTimelineFinishedFunc(TimelineEvent);
+	}
+
+	// Init client mesh
 	if(IsLocallyControlled())
 	{
 		ClientMesh->HideBoneByName(FName("neck_01"), EPhysBodyOp::PBO_None);
@@ -73,17 +81,25 @@ void AShooterCharacter::BeginPlay()
 
 	// Reset recoil instances
 	URecoilInstance::NumInstances = 0;
-	
+
+	// Do not predict health
 	if(HasAuthority())
 		ASC->GetGameplayAttributeValueChangeDelegate(UCharacterAttributeSet::GetHealthAttribute()).AddUObject(this, &AShooterCharacter::HealthChanged);
-	
+
+	// Predict movement speed change
+	ASC->GetGameplayAttributeValueChangeDelegate(UCharacterAttributeSet::GetMovementSpeedAttribute()).AddUObject(this, &AShooterCharacter::MovementSpeedChangedData);
+
+	const float MovementSpeedValue = CharacterSet->MovementSpeed.GetCurrentValue();
+	GetCharacterMovement()->MaxWalkSpeed = MovementSpeedValue;
+	GetCharacterMovement()->MaxWalkSpeedCrouched = MovementSpeedValue * 0.5f;
 }
 
 
 void AShooterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
+	AimingTimeline.TickTimeline(DeltaTime);
 }
 
 void AShooterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -99,6 +115,13 @@ void AShooterCharacter::PreReplication(IRepChangedPropertyTracker& ChangedProper
 
 	//DOREPLIFETIME_ACTIVE_OVERRIDE(AShooterCharacter, ADSValue, ADSValue <= 0.f || ADSValue >= 1.f);
 }
+
+void AShooterCharacter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	
+}
+
 
 
 void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -194,6 +217,18 @@ void AShooterCharacter::Die(const FGameplayEffectSpecHandle& OptionalSpec)
 	}
 }
 
+void AShooterCharacter::MovementSpeedChangedData(const FOnAttributeChangeData& Data)
+{
+	// Bad implementation, dunno why NewValue is not set to the actual new value.
+	const float NewValue = CharacterSet->MovementSpeed.GetCurrentValue();
+	const float OldValue = Data.OldValue;
+	
+	GetCharacterMovement()->MaxWalkSpeed = NewValue;
+	GetCharacterMovement()->MaxWalkSpeedCrouched = NewValue * 0.5f;
+	BP_MovementSpeedChanged(NewValue, OldValue);
+}
+
+
 void AShooterCharacter::HealthChanged(const FOnAttributeChangeData& Data)
 {
 	if(Data.NewValue <= 0.f && Data.GEModData && !ASC->HasMatchingGameplayTag(TAG("Status.State.Dead")))
@@ -244,6 +279,45 @@ void AShooterCharacter::Ragdoll_Implementation(const float Magnitude, const FGam
 		Params.EffectContext = FGameplayEffectContextHandle(new FGameplayEffectContextExtended(this, GAS::FilterTargetDataByActor(this, Extend(Spec.Data.Get()->GetEffectContext().Get())->GetTargetData())));
 		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(this, TAG("GameplayCue.Knockback"), EGameplayCueEvent::Executed, Params);
 	}
+}
+
+/*
+ *	AIMING
+ */
+
+void AShooterCharacter::StartAiming(const float PlaySpeed)
+{
+	if(HasAuthority() || IsLocallyControlled())
+		Multi_StartAiming_Implementation(PlaySpeed);
+
+	if(!HasAuthority())
+		Server_StartAiming(PlaySpeed);
+}
+
+void AShooterCharacter::Multi_StartAiming_Implementation(const float PlaySpeed)
+{
+	AimingTimeline.SetPlayRate(PlaySpeed);
+	AimingTimeline.Play();
+}
+
+
+void AShooterCharacter::ReverseAiming()
+{
+	if(HasAuthority() || IsLocallyControlled())
+		Multi_ReverseAiming_Implementation();
+
+	if(!HasAuthority())
+		Server_ReverseAiming();
+}
+
+void AShooterCharacter::Multi_ReverseAiming_Implementation()
+{
+	AimingTimeline.Reverse();
+}
+
+void AShooterCharacter::AimingComplete_Implementation(const bool bAiming)
+{
+
 }
 
 

@@ -79,7 +79,7 @@ void URecoilInstance::TimelineProgress_Implementation(const float Value)
 	const FTransform& NewTransform = UKismetMathLibrary::TLerp(FTransform::Identity, TargetTransform, Value);
 	const FTransform& Difference = NewTransform.GetRelativeTransform(CurrentTransform);
 	CurrentTransform = NewTransform;
-	Wielder->FPOffsetTransform *= Difference;
+	Wielder->WeaponOffsetTransform *= Difference;
 
 	if(bApplyControllerRecoil)
 	{
@@ -102,7 +102,7 @@ void URecoilInstance::TimelineEnd_Implementation()
 	TickerDelegate.Unbind();
 
 	if(Wielder && NumInstances <= 0)
-		Wielder->FPOffsetTransform = FTransform::Identity;
+		Wielder->WeaponOffsetTransform = FTransform::Identity;
 }
 
 

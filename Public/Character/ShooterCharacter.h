@@ -32,6 +32,8 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	
 	virtual FORCEINLINE class UAbilitySystemComponent* GetAbilitySystemComponent() const override { return ASC; }
 
 	virtual void PossessedBy(AController* NewController) override;
@@ -43,9 +45,6 @@ protected:
 	// Only visible or exists locally. 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
 	class USkeletalMeshComponent* ClientMesh;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
-	class USpringArmComponent* CameraSpringArm;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
 	class UCameraComponent* Camera;
@@ -116,6 +115,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class UCameraComponent* GetCamera() const { return Camera; }
 
+	// WARNING: Only valid if locally controlled
+	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE class USkeletalMeshComponent* GetClientMesh() const { return ClientMesh; }
+
 	// Immediately kills the player
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "OptionalSpec"), Category = "Character")
 	virtual void Die(const FGameplayEffectSpecHandle& OptionalSpec);
@@ -158,6 +161,14 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Configurations|GAS")
 	TSubclassOf<class UGameplayEffect> DeathEffectClass;
+
+	/*
+	 *	Movement Speed attribute
+	 */
+	virtual void MovementSpeedChangedData(const FOnAttributeChangeData& Data);
+
+	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "Movement Speed Changed"), Category = "Character")
+	void BP_MovementSpeedChanged(const float NewValue, const float OldValue);
 	
 public:
 	/*
@@ -184,6 +195,11 @@ public:
 	/*
 	 *	Procedural FP weapon animation stuff
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Anim")
+	virtual void StartAiming(const float PlaySpeed = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Anim")
+	virtual void ReverseAiming();
 	
 	// The amount we are currently aiming. From 0 - 1
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated, Category = "Anim")
@@ -191,7 +207,7 @@ public:
 
 	// FP arms mesh ik offset
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = "Anim")
-	FTransform FPOffsetTransform;
+	FTransform WeaponOffsetTransform;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configurations|Anim")
 	class UDataTable* ItemMeshDataTable;
@@ -199,8 +215,53 @@ public:
 	// Called whenever landed and multicasted
 	UPROPERTY(BlueprintAssignable, Category = "Delegates")
 	FLandedMulticast LandedMultiDelegate;
-
+	
 protected:
+	FTimeline AimingTimeline;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
+	class UCurveFloat* AimingCurve;
+
+	// Set ADSValue to Value
+	virtual FORCEINLINE void AimingTimelineProgress(const float Value)
+	{
+		//PRINT(TEXT("%s: Value == %f"), *FString(__FUNCTION__), Value);
+		ADSValue = Value;
+	}
+	
+	virtual FORCEINLINE void AimingTimelineEvent()
+	{
+		AimingComplete(AimingTimeline.GetPlaybackPosition() > 0.f);
+	}
+
+	UFUNCTION(BlueprintNativeEvent, Category = "Anim")
+	void AimingComplete(const bool bAiming);
+	virtual void AimingComplete_Implementation(const bool bAiming);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_StartAiming(const float PlaySpeed);
+	virtual FORCEINLINE void Server_StartAiming_Implementation(const float PlaySpeed)
+	{
+		Multi_StartAiming(PlaySpeed);
+		Multi_StartAiming_Implementation(PlaySpeed);
+	}
+
+	UFUNCTION(Server, Reliable)
+	void Server_ReverseAiming();
+	virtual FORCEINLINE void Server_ReverseAiming_Implementation()
+	{
+		Multi_ReverseAiming();
+		Multi_ReverseAiming_Implementation();
+	}
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multi_StartAiming(const float PlaySpeed);
+	virtual void Multi_StartAiming_Implementation(const float PlaySpeed);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multi_ReverseAiming();
+	virtual void Multi_ReverseAiming_Implementation();
+	
 	virtual FORCEINLINE void Landed(const FHitResult& Hit) override
 	{
 		Super::Landed(Hit);

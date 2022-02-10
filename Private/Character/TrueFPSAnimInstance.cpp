@@ -8,6 +8,7 @@
 #include "Curves/CurveVector.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Widgets/Text/ISlateEditableTextWidget.h"
 
 
 UTrueFPSAnimInstance::UTrueFPSAnimInstance()
@@ -37,12 +38,21 @@ void UTrueFPSAnimInstance::NativeUpdateAnimation(float DeltaTime)
 			return;
 		}
 	}
+	
+	
 
 	SetVars(DeltaTime);
+
+	CalculateMeshOffset(DeltaTime);
+
+	// Calculate RelativeCameraTransform after mesh offset to get current value before calculating weapon sway
+	const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
+	RelativeCameraTransform = CameraTransform.GetRelativeTransform(RootOffset);
+	
 	CalculateWeaponSway(DeltaTime);
 
 	// Set old vars for next anim update
-	LastAimRotation = Character->GetBaseAimRotation();
+	LastAimRotation = CameraTransform.Rotator();
 	LastVelocity = Character->GetCharacterMovement()->Velocity;
 }
 
@@ -55,11 +65,13 @@ void UTrueFPSAnimInstance::SetVars_Implementation(const float DeltaTime)
 	else
 	{
 		// Clamp pitch to prevent weird yaw rotation glitch on simulated proxies
-		static constexpr float ClampAngle = 89.9f;
+		constexpr float ClampAngle = 89.9f;
 		FRotator ClampedBaseAimRotation = Character->GetBaseAimRotation();
 		ClampedBaseAimRotation.Pitch = FMath::ClampAngle(ClampedBaseAimRotation.Pitch, -ClampAngle, ClampAngle);
-        	
-		CameraTransform = FTransform(ClampedBaseAimRotation, Character->GetCamera()->GetComponentLocation());
+
+		// Interp camera rotation to prevent a hitchy look on non-local viewports
+		const FRotator& RotationInterp = UKismetMathLibrary::RInterpTo(CameraTransform.Rotator(), ClampedBaseAimRotation, DeltaTime, NonLocalCameraRotationInterpSpeed);
+		CameraTransform = FTransform(RotationInterp, Character->GetCamera()->GetComponentLocation());
 	}
 	
 	/*
@@ -80,10 +92,8 @@ void UTrueFPSAnimInstance::SetVars_Implementation(const float DeltaTime)
 	
 	ADSMagnitude = Character->ADSValue;
 	
-	const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
-	//RelativeCameraTransform = FTransform(Character->GetBaseAimRotation(), Character->GetCamera()->GetComponentLocation()).GetRelativeTransform(RootOffset);
-	
-	RelativeCameraTransform = CameraTransform.GetRelativeTransform(RootOffset);
+	//const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
+	//RelativeCameraTransform = CameraTransform.GetRelativeTransform(RootOffset);
 	
 
 	/*
@@ -153,9 +163,45 @@ void UTrueFPSAnimInstance::CalculateWeaponSway(const float DeltaTime)
 	if(MovementWeaponSwayCurve)
 		OffsetLocation += MovementWeaponSwayCurve->GetVectorValue(MovementWeaponSwayProgressTime) * (MovementSpeedInterp / MaxMoveSpeed) * 5.f * FMath::Max<float>(1.f - ADSMagnitude, 0.1f);
 	
-	OffsetTransform = Character->FPOffsetTransform * FTransform(OffsetRotation, OffsetLocation, FVector(1.f));
+	OffsetTransform = Character->WeaponOffsetTransform * FTransform(OffsetRotation, OffsetLocation, FVector(1.f));
 	//UE_LOG(LogTemp, Warning, TEXT("OffsetTransform == %s"), *FTransform(OffsetRotation, OffsetLocation, FVector(1.f)).ToString());
 }
+
+
+void UTrueFPSAnimInstance::CalculateMeshOffset(const float DeltaTime)
+{
+	constexpr float YawThreshold = 89.f;
+	constexpr float MovementThreshold = 10.f;
+
+	if(!bIsTurningInPlace && abs(RootYawOffset) < 5.f && Character->GetCharacterMovement()->Velocity.Size() < MovementThreshold)
+	{
+		bIsTurningInPlace = true;
+		PRINT(TEXT("Turning in place"));
+	}
+
+	if(bIsTurningInPlace)
+	{
+		RootYawOffset += LastAimRotation.Yaw - CameraTransform.Rotator().Yaw;
+		
+		if(Character->GetCharacterMovement()->Velocity.Size() >= MovementThreshold)
+		{
+			PRINT(TEXT("Moved"));
+			bIsTurningInPlace = false;
+			RootYawOffset = 0.f;
+		}
+		else if(abs(RootYawOffset) >= YawThreshold)
+		{
+			PRINT(TEXT("Rotated"));
+			bIsTurningInPlace = false;
+		}
+	}
+
+	if(!bIsTurningInPlace)
+	{
+		RootYawOffset = UKismetMathLibrary::RInterpTo(FRotator(0.f, RootYawOffset, 0.f), FRotator::ZeroRotator, DeltaTime, 2.f).Yaw;
+	}
+}
+
 
 
 void UTrueFPSAnimInstance::Init()
@@ -172,14 +218,26 @@ void UTrueFPSAnimInstance::Init()
 void UTrueFPSAnimInstance::WeaponChanged_Implementation(AWeapon* NewWeapon, const AWeapon* OldWeapon)
 {
 	CurrentWeapon = NewWeapon;
-	if(!CurrentWeapon) return;
+	if(CurrentWeapon)
+	{
+		// Init vars from current weapon
+		AnimPose = CurrentWeapon->AnimPose;
+		CurrentWeightScale = CurrentWeapon->WeightScale;
+		CurrentAimPointOffset = CurrentWeapon->AimOffset;
+		CurrentCustomWeaponOffsetTransform = CurrentWeapon->CustomWeaponOffsetTransform;
 
-	if(UAnimSequence* NewPose = CurrentWeapon->AnimPose)
-		AnimPose = NewPose;
-
-	CurrentWeightScale = CurrentWeapon->WeightScale;
-	
-	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &UTrueFPSAnimInstance::SetIKTransforms);
+		// Get the sight transform relative to right hand for control rig calculations
+		RHandToSightsTransform = CurrentWeapon->GetSightsWorldTransform().GetRelativeTransform(Mesh->GetSocketTransform(FName("hand_r")));
+	}
+	else
+	{
+		// Clear current weapon vars
+		AnimPose = nullptr;
+		CurrentWeightScale = 0.f;
+		CurrentAimPointOffset = 0.f;
+		CurrentCustomWeaponOffsetTransform = FTransform::Identity;
+		RHandToSightsTransform = FTransform::Identity;
+	} 
 }
 
 void UTrueFPSAnimInstance::OnCharacterLanded(AShooterCharacter* InCharacter, const FHitResult& Hit)

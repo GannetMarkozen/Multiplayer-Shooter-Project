@@ -37,6 +37,8 @@ protected:
 
 	virtual void CalculateWeaponSway(const float DeltaTime);
 
+	virtual void CalculateMeshOffset(const float DeltaTime);
+
 	UFUNCTION(BlueprintCallable, Category = "Anim")
 	virtual void OnCharacterLanded(class AShooterCharacter* InCharacter, const FHitResult& Hit);
 
@@ -64,6 +66,15 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Anim|IK")
 	float CurrentAimPointOffset = 0.f;
+
+	/*
+	 *	STATIONARY ANIM 
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
+	float RootYawOffset = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Anim|IK")
+	bool bIsTurningInPlace = false;
 
 	/*
 	 *	IK
@@ -156,6 +167,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	float AccumulativeRotationInterpSpeed = 5.f;
+
+	// The rotation interp speed on non-local players' viewports
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurations")
+	float NonLocalCameraRotationInterpSpeed = 20.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	float VelocityInterpSpeed = 10.f;
