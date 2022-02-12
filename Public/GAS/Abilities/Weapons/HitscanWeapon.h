@@ -3,14 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Weapon.h"
+#include "ProjectileWeapon.h"
+#include "GAS/GASGameplayAbility.h"
 #include "HitscanWeapon.generated.h"
 
 /** Contains the parameters and calculation requirements for a hitscan weapon
  * including damage falloff and line trace ability
- */
+ */ 
 UCLASS(Abstract)
-class MULTIPLAYERSHOOTER_API AHitscanWeapon : public AWeapon
+class MULTIPLAYERSHOOTER_API AHitscanWeapon : public AProjectileWeapon
 {
 	GENERATED_BODY()
 public:

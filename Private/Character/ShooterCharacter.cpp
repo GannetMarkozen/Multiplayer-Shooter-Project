@@ -29,12 +29,12 @@ AShooterCharacter::AShooterCharacter()
 	GetMesh()->bVisibleInReflectionCaptures = true;
 	GetMesh()->SetTickGroup(ETickingGroup::TG_PostUpdateWork); // Set this tick group to late to get camera transform during anim
 
-	ClientMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Client Mesh"));
-	ClientMesh->SetCastShadow(false);
-	ClientMesh->bCastHiddenShadow = false;
-	ClientMesh->bVisibleInReflectionCaptures = false;
-	ClientMesh->SetTickGroup(ETickingGroup::TG_PostUpdateWork);
-	//ClientMesh->SetupAttachment(GetMesh(), FName("root"));
+	ClientOnlyMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Client Only Mesh"));
+	ClientOnlyMesh->SetCastShadow(false);
+	ClientOnlyMesh->bCastHiddenShadow = false;
+	ClientOnlyMesh->bVisibleInReflectionCaptures = false;
+	ClientOnlyMesh->SetTickGroup(ETickingGroup::TG_PostUpdateWork);
+	ClientOnlyMesh->SetupAttachment(GetMesh());
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->bUsePawnControlRotation = true;
@@ -71,12 +71,12 @@ void AShooterCharacter::BeginPlay()
 	// Init client mesh
 	if(IsLocallyControlled())
 	{
-		ClientMesh->HideBoneByName(FName("neck_01"), EPhysBodyOp::PBO_None);
+		ClientOnlyMesh->HideBoneByName(FName("neck_01"), EPhysBodyOp::PBO_None);
 		GetMesh()->SetVisibility(false);
 	}
 	else
 	{
-		ClientMesh->DestroyComponent();
+		ClientOnlyMesh->DestroyComponent();
 	}
 
 	// Reset recoil instances

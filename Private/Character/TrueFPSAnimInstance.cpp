@@ -39,16 +39,8 @@ void UTrueFPSAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		}
 	}
 	
-	
-
 	SetVars(DeltaTime);
-
 	CalculateMeshOffset(DeltaTime);
-
-	// Calculate RelativeCameraTransform after mesh offset to get current value before calculating weapon sway
-	const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("ik_hand_root"));
-	RelativeCameraTransform = CameraTransform.GetRelativeTransform(RootOffset);
-	
 	CalculateWeaponSway(DeltaTime);
 
 	// Set old vars for next anim update
@@ -73,6 +65,10 @@ void UTrueFPSAnimInstance::SetVars_Implementation(const float DeltaTime)
 		const FRotator& RotationInterp = UKismetMathLibrary::RInterpTo(CameraTransform.Rotator(), ClampedBaseAimRotation, DeltaTime, NonLocalCameraRotationInterpSpeed);
 		CameraTransform = FTransform(RotationInterp, Character->GetCamera()->GetComponentLocation());
 	}
+
+	// Used for mesh calculations
+	const FTransform& RootOffset = Mesh->GetSocketTransform(FName("root"), RTS_Component).Inverse() * Mesh->GetSocketTransform(FName("root"));
+	RelativeCameraTransform = CameraTransform.GetRelativeTransform(RootOffset);
 	
 	/*
 	 *	LOCOMOTION VARS
@@ -170,35 +166,57 @@ void UTrueFPSAnimInstance::CalculateWeaponSway(const float DeltaTime)
 
 void UTrueFPSAnimInstance::CalculateMeshOffset(const float DeltaTime)
 {
-	constexpr float YawThreshold = 89.f;
-	constexpr float MovementThreshold = 10.f;
-
-	if(!bIsTurningInPlace && abs(RootYawOffset) < 5.f && Character->GetCharacterMovement()->Velocity.Size() < MovementThreshold)
+	if(!bIsTurningInPlace && abs(RootYawOffset) < 2.f && Character->GetCharacterMovement()->Velocity.Size() < StationaryVelocityThreshold)
 	{
 		bIsTurningInPlace = true;
-		PRINT(TEXT("Turning in place"));
 	}
 
 	if(bIsTurningInPlace)
 	{
-		RootYawOffset += LastAimRotation.Yaw - CameraTransform.Rotator().Yaw;
-		
-		if(Character->GetCharacterMovement()->Velocity.Size() >= MovementThreshold)
+		RootYawOffset += FRotator::NormalizeAxis(LastAimRotation.Yaw - CameraTransform.Rotator().Yaw);
+
+		// If exceeded rotation or velocity thresholds, set turn in place to false and set rot speed to desired speed
+		if(Character->GetCharacterMovement()->Velocity.Size() >= StationaryVelocityThreshold)
 		{
-			PRINT(TEXT("Moved"));
 			bIsTurningInPlace = false;
-			RootYawOffset = 0.f;
+			StationaryYawInterpSpeed = 8.f;
 		}
-		else if(abs(RootYawOffset) >= YawThreshold)
+		else if(abs(RootYawOffset) >= StationaryYawThreshold)
 		{
-			PRINT(TEXT("Rotated"));
 			bIsTurningInPlace = false;
+			StationaryYawInterpSpeed = 5.f;
+		}
+
+		// If no longer turning in place, set the rotation amount for turning animation usage
+		if(!bIsTurningInPlace)
+		{
+			StationaryYawAmount = -RootYawOffset;
 		}
 	}
 
-	if(!bIsTurningInPlace)
+	if(!bIsTurningInPlace && RootYawOffset)
 	{
-		RootYawOffset = UKismetMathLibrary::RInterpTo(FRotator(0.f, RootYawOffset, 0.f), FRotator::ZeroRotator, DeltaTime, 2.f).Yaw;
+		const float YawDifference = FRotator::NormalizeAxis(LastAimRotation.Yaw - CameraTransform.Rotator().Yaw);
+		RootYawOffset += YawDifference;
+		
+		if(-YawDifference > 0.f == StationaryYawAmount > 0.f)
+			StationaryYawAmount += -YawDifference;
+
+		StationaryYawSpeedNormal = FMath::Clamp<float>(StationaryYawAmount / 180.f, 1.5f, 3.f);
+            
+		// Never allow the yaw offset to exceed the yaw threshold
+		RootYawOffset = FMath::ClampAngle(RootYawOffset, -StationaryYawThreshold, StationaryYawThreshold);
+            
+		// Never allow yaw offset to exceed yaw threshold
+		RootYawOffset = UKismetMathLibrary::FInterpTo(RootYawOffset, 0.f, DeltaTime, StationaryYawInterpSpeed);
+
+		// Once matched rotation, clear vars
+		if(abs(RootYawOffset) < 2.f)
+		{
+			StationaryYawInterpSpeed = 0.f;
+			StationaryYawAmount = 0.f;
+			RootYawOffset = 0.f;
+		}
 	}
 }
 

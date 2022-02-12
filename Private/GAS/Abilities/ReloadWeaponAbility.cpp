@@ -88,7 +88,11 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		if(ActorInfo->IsNetAuthority())
 		{// Play third person reload animation on all instances
 			if(CurrentWeapon->GetEquipMontage())
+			{
 				GET_ASC->NetMulticast_InvokeGameplayCueExecuted_WithParams(NetMulticastReloadingCue, ActivationInfo.GetActivationPredictionKey(), Params);
+				PRINT(TEXT("%s: Playing Equip Montage"), *AUTHTOSTRING(ActorInfo->IsNetAuthority()));
+			}
+				
 
 			// If server, add reload state and at the end call the callback delegate that sets the ammo
 			TDelegate<void(UGASAbilitySystemComponent*, const FGameplayTag&)> CallbackDelegate;

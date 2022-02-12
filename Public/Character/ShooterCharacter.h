@@ -44,7 +44,7 @@ public:
 protected:
 	// Only visible or exists locally. 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
-	class USkeletalMeshComponent* ClientMesh;
+	class USkeletalMeshComponent* ClientOnlyMesh;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
 	class UCameraComponent* Camera;
@@ -53,7 +53,7 @@ protected:
 	class UGASAbilitySystemComponent* ASC;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Components")
-	TObjectPtr<class UCharacterInventoryComponent> Inventory;
+	class UCharacterInventoryComponent* Inventory;
 
 	virtual void MoveForward(float Value);
 	virtual void MoveRight(float Value);
@@ -117,7 +117,7 @@ public:
 
 	// WARNING: Only valid if locally controlled
 	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class USkeletalMeshComponent* GetClientMesh() const { return ClientMesh; }
+	class USkeletalMeshComponent* GetClientMesh() const { return ClientOnlyMesh; }
 
 	// Immediately kills the player
 	UFUNCTION(BlueprintCallable, Meta = (AutoCreateRefTerm = "OptionalSpec"), Category = "Character")

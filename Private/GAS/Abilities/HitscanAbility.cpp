@@ -73,7 +73,7 @@ void UHitscanAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 		Params.Instigator = CHARACTER;
 		Params.EffectContext = GET_ASC->MakeEffectContextExtended(CHARACTER);
 		Params.RawMagnitude = PlayRate;
-		GET_ASC->ExecuteGameplayCueLocal(LocalFiringCue, Params);
+		//GET_ASC->ExecuteGameplayCueLocal(LocalFiringCue, Params);
 	}
 
 	TArray<FHitResult> Hits;

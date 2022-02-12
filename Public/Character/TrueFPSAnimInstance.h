@@ -70,11 +70,27 @@ public:
 	/*
 	 *	STATIONARY ANIM 
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|IK")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Anim|Stationary")
 	float RootYawOffset = 0.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Anim|IK")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Anim|Stationary")
 	bool bIsTurningInPlace = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Anim|Stationary")
+	float StationaryYawThreshold = 89.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Anim|Stationary")
+	float StationaryVelocityThreshold = 10.f;
+
+	// The stationary rotation speed and direction (negative == left positive == right) ranging from -8 to 8
+	float StationaryYawInterpSpeed = 0.f;
+
+	// The current yaw rotation speed of this frame. Multiply play rate based on this value
+	UPROPERTY(BlueprintReadOnly, Category = "Anim|Stationary")
+	float StationaryYawSpeedNormal = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Anim|Stationary")
+	float StationaryYawAmount = 0.f;
 
 	/*
 	 *	IK

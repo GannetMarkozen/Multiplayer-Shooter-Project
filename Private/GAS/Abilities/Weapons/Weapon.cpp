@@ -5,7 +5,9 @@
 
 #include "Character/ShooterCharacter.h"
 #include "GAS/ExtendedTypes.h"
+#include "GAS/GASBlueprintFunctionLibrary.h"
 #include "GAS/GASGameplayAbility.h"
+#include "GAS/Abilities/Weapons/RecoilInstance.h"
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "GAS/Effects/DamageEffect.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"

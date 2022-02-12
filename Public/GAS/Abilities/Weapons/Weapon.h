@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Item.h"
+#include "Components/TimelineComponent.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
 #include "GAS/DamageInterface.h"
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
@@ -327,9 +328,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Anim")
 	class UAnimSequence* AnimPose;
 
+	// Override the sights transform here. For weapons without sights set this to be the forward direction of the weapon
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Configurations|Anim")
 	FTransform GetSightsWorldTransform() const;
 	virtual FORCEINLINE FTransform GetSightsWorldTransform_Implementation() const { return Mesh->GetSocketTransform(FName("Sights")); }
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Configurations|Anim")
+	FTransform GetMuzzleWorldTransform() const;
+	virtual FORCEINLINE FTransform GetMuzzleWorldTransform_Implementation() const { return Mesh->GetSocketTransform(FName("Muzzle")); }
 
 	// The offset from the weapon's AnimPose of the weapon when not aiming relative to the sights
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
@@ -342,9 +348,6 @@ public:
 	// Determines the distance from the camera to the sights when aiming
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
 	float AimOffset = 15.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations|Anim")
-	TSubclassOf<class URecoilInstance> RecoilInstanceClass;
 	
 protected:
 	/*
