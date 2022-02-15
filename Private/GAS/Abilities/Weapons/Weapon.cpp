@@ -3,11 +3,13 @@
 
 #include "GAS/Abilities/Weapons/Weapon.h"
 
+#include "MultiplayerShooter/Public/GAS/Abilities/Weapons/InputBinding.h"
 #include "Character/ShooterCharacter.h"
 #include "GAS/ExtendedTypes.h"
 #include "GAS/GASBlueprintFunctionLibrary.h"
 #include "GAS/GASGameplayAbility.h"
 #include "GAS/Abilities/Weapons/RecoilInstance.h"
+#include "GAS/Abilities/Weapons/Rifle.h"
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "GAS/Effects/DamageEffect.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
@@ -17,13 +19,13 @@ AWeapon::AWeapon()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
-
+	
+	DamageEffect = UDamageEffect::StaticClass();
 	WeaponAttachmentSocketName = FName("weaponsocket_r");
-	AmmoAttribute = UAmmoAttributeSet::GetRifleAmmoAttribute();
 
 	DefaultScene = CreateDefaultSubobject<USceneComponent>(TEXT("Default Scene"));
 	RootComponent = DefaultScene;
-
+	
 	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Weapon Mesh"));
 	Mesh->SetSimulatePhysics(false);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -35,8 +37,9 @@ AWeapon::AWeapon()
 	Mesh->SetCollisionResponseToChannel(ECC_Projectile, ECR_Ignore);
 	Mesh->SetupAttachment(DefaultScene);
 	
-	DamageEffect = UDamageEffect::StaticClass();
+	
 }
+
 
 void AWeapon::BeginPlay()
 {
@@ -44,12 +47,24 @@ void AWeapon::BeginPlay()
 	
 }
 
+void AWeapon::SetupInputBindings()
+{
+	//SetupBind(&AWeapon::PrintSomething, EInputBinding::PrimaryFire, IE_Released);
+	for(const FInputBindingInfo& Bind : Binds)
+		UInputBinding::BindInputUFunction(CurrentOwner, this, Bind.FuncName, Bind.InputBind, Bind.InputEvent);
+}
+
+void AWeapon::RemoveInputBindings()
+{// Should fix this function being called twice when dropping an item and then immediately swapping to next item, but doesn't really matter
+	UInputBinding::RemoveAllInputUObject(CurrentOwner, this);
+}
+
+
 
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, Ammo, COND_OwnerOnly, REPNOTIFY_OnChanged);
+	
 	DOREPLIFETIME_CONDITION_NOTIFY(AWeapon, CurrentInventory, COND_None, REPNOTIFY_OnChanged);
 }
 
@@ -90,18 +105,27 @@ void AWeapon::OnEquipped(UCharacterInventoryComponent* Inventory)
 		if(UAnimInstance* AnimInstance = CurrentOwner->GetMesh()->GetAnimInstance())
 			AnimInstance->Montage_Play(EquipMontage);
 
+	// Bind custom inputs
+	SetupInputBindings();
+
 	BP_OnEquipped(Inventory);
 }
 
-void AWeapon::OnUnEquipped(UCharacterInventoryComponent* Inventory)
+void AWeapon::OnUnequipped(UCharacterInventoryComponent* Inventory)
 {
 	SetVisibility(false);
 
 	// Only runs on server
 	RemoveAbilities();
 
+	// Remove input binding from this weapon
+	if(CurrentOwner && CurrentOwner->IsLocallyControlled())
+		RemoveInputBindings();
+		//UInputBinding::RemoveAllInputUObject(CurrentOwner, this);
+
 	BP_OnUnEquipped(Inventory);
 }
+
 
 void AWeapon::GiveAbilities()
 {
@@ -144,18 +168,14 @@ void AWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* O
 
 			// Attach to weapon socket point
 			AttachToWeaponSocket();
-			
-			// Bind reserve ammo delegate on changed
-			if(AmmoAttribute.IsValid())
-				CurrentASC->GetGameplayAttributeValueChangeDelegate(AmmoAttribute).AddUObject(this, &AWeapon::ReserveAmmoUpdated);
 		}
 	}
 	else
 	{
-		// Unbind reserve ammo delegate
-		if(AmmoAttribute.IsValid() && CurrentASC)
-			CurrentASC->GetGameplayAttributeValueChangeDelegate(AmmoAttribute).RemoveAll(this);
-		
+		if(IsValid(CurrentOwner) && CurrentOwner->IsLocallyControlled())
+			RemoveInputBindings();
+			//UInputBinding::RemoveAllInputUObject(CurrentOwner, this);
+			
 		CurrentOwner = nullptr;
 		CurrentCharacterInventory = nullptr;
 		CurrentASC = nullptr;
@@ -181,36 +201,70 @@ void AWeapon::AttachToWeaponSocket()
 	}
 }
 
-FGameplayAttributeData* AWeapon::GetAmmoAttributeData() const
+bool AWeapon::IsLocallyControlledOwner() const
 {
-	if(AmmoAttribute.IsValid() && CurrentASC)
-		return AmmoAttribute.GetUProperty()->ContainerPtrToValuePtr<FGameplayAttributeData>((UAmmoAttributeSet*)CurrentASC->GetSet<UAmmoAttributeSet>());
-	return nullptr;
+	return CurrentOwner && CurrentOwner->IsLocallyControlled();
 }
 
-void AWeapon::SetReserveAmmo(const int32 NewReserveAmmo)
+/*
+ *	INPUT BINDINGS
+ */
+
+/*
+template <typename EnumType>
+void AWeapon::BindInputEvent(UObject* Object, const FName& FunctionName, const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent)
 {
-	if(!AmmoAttribute.IsValid() || !CurrentASC) return;
+	if(!CurrentOwner || !Object) return;
+	FInputActionBinding Binding(UEnumHelpers::GetEnumValueName<EnumType>(EnumValue), InputEvent);
+	Binding.bConsumeInput = false;
+	Binding.ActionDelegate.BindDelegate(Object, FunctionName);
+	if(CurrentOwner && CurrentOwner->Controller && CurrentOwner->Controller->InputComponent)
+		CurrentOwner->Controller->InputComponent->AddActionBinding(Binding);
+}
+
+template<typename EnumType, typename UserClass, typename ReturnType, typename... ParamTypes>
+void AWeapon::BindInputEvent(UserClass* Object, ReturnType(UserClass::* FuncPtr)(ParamTypes...), const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent)
+{
+	if(!CurrentOwner || !Object) return;
+	FInputActionBinding Binding(UEnumHelpers::GetEnumValueName<EnumType>(EnumValue), InputEvent);
+	Binding.bConsumeInput = false;
+	Binding.ActionDelegate.GetDelegateForManualSet().BindUObject(Object, FuncPtr);
+	if(CurrentOwner && CurrentOwner->Controller && CurrentOwner->Controller->InputComponent)
+		CurrentOwner->Controller->InputComponent->AddActionBinding(Binding);
+}
+
+template<typename EnumType, typename ReturnType, typename... ParamTypes>
+void AWeapon::BindInputEvent(const TDelegate<ReturnType(ParamTypes...)>& FuncPtr, const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent)
+{
+	if(!CurrentOwner) return;
+	FInputActionBinding Binding(UEnumHelpers::GetEnumValueName<EnumType>(EnumValue), InputEvent);
+	Binding.bConsumeInput = false;
+	Binding.ActionDelegate.GetDelegateForManualSet().BindLambda(FuncPtr);
+	if(CurrentOwner && CurrentOwner->Controller && CurrentOwner->Controller->InputComponent)
+		CurrentOwner->Controller->InputComponent->AddActionBinding(Binding);
+}
+
+
+template<typename EnumType>
+void AWeapon::RemoveInputEventFromObject(UObject* Object, const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent)
+{
+	if(!CurrentOwner || !Object || !CurrentOwner->Controller || !CurrentOwner->Controller->InputComponent) return;
 	
-	// Create runtime GE to override reserve ammo
-	UGameplayEffect* GameplayEffect = NewObject<UGameplayEffect>(GetTransientPackage(), TEXT("RuntimeInstantGE"));
-	GameplayEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
-
-	const int32 Idx = GameplayEffect->Modifiers.Num();
-	GameplayEffect->Modifiers.SetNum(Idx + 1);
-	FGameplayModifierInfo& ModifierInfo = GameplayEffect->Modifiers[Idx];
-	ModifierInfo.Attribute = AmmoAttribute;
-	ModifierInfo.ModifierMagnitude = FScalableFloat(NewReserveAmmo);
-	ModifierInfo.ModifierOp = EGameplayModOp::Override;
-
-	const FGameplayEffectSpec* Spec = new FGameplayEffectSpec(GameplayEffect, {}, 1.f);
-	CurrentASC->ApplyGameplayEffectSpecToSelf(*Spec);
+	TArray<FInputKeyBinding>& KeyBindings = CurrentOwner->Controller->InputComponent->KeyBindings;
+	for(int32 i = 0; i < KeyBindings.Num(); i++)
+		if(KeyBindings[i].Chord.Key.ToString() == UEnumHelpers::GetEnumValueString<EnumType>(EnumValue) && KeyBindings[i].KeyEvent == InputEvent && KeyBindings[i].KeyDelegate.GetUObject() == Object)
+		{
+			KeyBindings.RemoveAt(i);
+			PRINT(TEXT("Removing input %s"), *KeyBindings[i].Chord.Key.ToString());
+		}
+			
+		
+		//CurrentOwner->Controller->InputComponent->RemoveActionBinding(UEnumHelpers::GetEnumValueName<EnumType>(EnumValue), InputEvent);
 }
-
-int32 AWeapon::GetReserveAmmo() const
+*/
+/*
+template<typename UserClass, typename ReturnType, typename... ParamTypes, typename EnumType>
+void AWeapon::Internal_SetBinding(ReturnType(UserClass::* MemFuncPtr)(ParamTypes...), const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent, const bool bRemoving)
 {
-	return AmmoAttribute.IsValid() && CurrentASC ? GetAmmoAttributeData()->GetCurrentValue() : 0;
-}
-
-
-
+	bRemoving ? UInputBinding::RemoveInputUObject(CurrentOwner, this, EnumValue, InputEvent) : UInputBinding::BindInputUObject(CurrentOwner, this, MemFuncPtr, EnumValue, InputEvent);
+}*/

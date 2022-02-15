@@ -15,7 +15,7 @@ void CallOnEquipped(AWeapon* Weapon, UCharacterInventoryComponent* Inventory)
 // AWeapon friend func, only calls if weapon is valid
 void CallOnUnEquipped(AWeapon* Weapon, UCharacterInventoryComponent* Inventory)
 {
-	if(Weapon) Weapon->OnUnEquipped(Inventory);
+	if(Weapon) Weapon->OnUnequipped(Inventory);
 }
 
 
@@ -62,6 +62,7 @@ void UCharacterInventoryComponent::RemoveItem(const int32 Index)
 	if(Index == GetCurrentIndex())
 	{
 		Super::RemoveItem(Index);
+		
 		const AWeapon* OldWeapon = CurrentWeapon;
 		if(Weapons.IsValidIndex(GetCurrentIndex()))
 		{

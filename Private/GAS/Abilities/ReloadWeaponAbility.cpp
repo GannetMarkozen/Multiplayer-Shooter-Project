@@ -7,6 +7,7 @@
 #include "Character/ShooterCharacter.h"
 #include "GAS/GASAbilitySystemComponent.h"
 #include "GAS/Abilities/AbilityTasks/AbilityTask_WaitMontageCompleted.h"
+#include "GAS/Abilities/Weapons/ProjectileWeapon.h"
 
 
 UReloadWeaponAbility::UReloadWeaponAbility()
@@ -26,7 +27,7 @@ void UReloadWeaponAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorI
 {
 	Super::OnGiveAbility(ActorInfo, Spec);
 
-	CurrentWeapon = CURRENTWEAPON;
+	CurrentWeapon = CURRENTWEAPONTYPE(AProjectileWeapon);
 	if(bReloadOnEnd && ActorInfo->IsNetAuthority())
 	{
 		if(CurrentWeapon->GetAmmo() <= 0)
@@ -67,8 +68,8 @@ void UReloadWeaponAbility::TagsChanged_Implementation(FGameplayTag Tag, int32 Co
 
 bool UReloadWeaponAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
-	const AWeapon* Current = CURRENTWEAPON;
-	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && Current && Current->GetAmmo() < CastChecked<AWeapon>(Current->GetClass()->GetDefaultObject())->GetAmmo() && Current->GetReserveAmmo() > 0;
+	const AProjectileWeapon* Current = CURRENTWEAPONTYPE(AProjectileWeapon);
+	return Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) && Current && Current->GetAmmo() < static_cast<const AProjectileWeapon*>(Current->GetClass()->GetDefaultObject())->GetAmmo() && Current->GetReserveAmmo() > 0;
 }
 
 
@@ -76,7 +77,7 @@ void UReloadWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	CurrentWeapon = CURRENTWEAPON;
+	CurrentWeapon = CURRENTWEAPONTYPE(AProjectileWeapon);
 	if(HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
 	{// Init gameplay cue params
 		FGameplayCueParameters Params;
@@ -118,7 +119,7 @@ void UReloadWeaponAbility::Server_SetAmmo(UGASAbilitySystemComponent* ASC, const
 	//AWeapon* CurrentWeapon = ((FGameplayAbilityActorInfoExtended*)ASC->AbilityActorInfo.Get())->Character.Get()->GetCurrentWeapon();
 	const int32 ReserveAmmo = CurrentWeapon->GetReserveAmmo();
 	const int32 OldAmmo = CurrentWeapon->GetAmmo();
-	CurrentWeapon->SetAmmo(FMath::Min<int32>(ReserveAmmo + OldAmmo, static_cast<const AWeapon*>(CurrentWeapon->GetClass()->GetDefaultObject())->GetAmmo()));
+	CurrentWeapon->SetAmmo(FMath::Min<int32>(ReserveAmmo + OldAmmo, static_cast<const AProjectileWeapon*>(CurrentWeapon->GetClass()->GetDefaultObject())->GetAmmo()));
 	CurrentWeapon->SetReserveAmmo(ReserveAmmo + OldAmmo - CurrentWeapon->GetAmmo());
 }
 

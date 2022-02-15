@@ -138,7 +138,7 @@ void UTrueFPSAnimInstance::CalculateWeaponSway(const float DeltaTime)
 	const FVector& OrientationVelocityInterp = (FRotator(0.f, CameraTransform.Rotator().Yaw, 0.f) - VelocityInterp.Rotation()).Vector() * VelocityInterp.Size() * FVector(1.f, -1.f, 1.f);
 	const FVector& MovementOffset = (OrientationVelocityInterp / MaxMoveSpeed) * FMath::Max<float>(1.f - ADSMagnitude, 0.6f);
 	OffsetLocation += MovementOffset;
-
+        
 	// Add accumulative rotation
 	OffsetRotation += AccumulativeRotationInterpInverse;
 

@@ -16,6 +16,7 @@
 #define CHARACTERMOVEMENT static_cast<const FGameplayAbilityActorInfoExtended*>(ActorInfo)->Character.Get()->GetCharacterMovement()
 #define INVENTORY static_cast<const FGameplayAbilityActorInfoExtended*>(ActorInfo)->Inventory.Get()
 #define CURRENTWEAPON static_cast<const FGameplayAbilityActorInfoExtended*>(ActorInfo)->Inventory.Get()->GetCurrentWeapon()
+#define CURRENTWEAPONTYPE(ClassName) static_cast<const FGameplayAbilityActorInfoExtended*>(ActorInfo)->Inventory.Get()->GetCurrentWeapon<ClassName>()
 
 
 

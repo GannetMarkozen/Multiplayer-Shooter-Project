@@ -2,14 +2,14 @@
 
 #pragma once
 
+
 #include "CoreMinimal.h"
+#include "InputBinding.h"
 #include "Item.h"
-#include "Components/TimelineComponent.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
 #include "GAS/DamageInterface.h"
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "Weapon.generated.h"
-
 
 
 USTRUCT(BlueprintType)
@@ -30,37 +30,11 @@ struct FMeshTableRow : public FTableRowBase
 	FName ForegripName = "Foregrip";
 };
 
-USTRUCT(BlueprintType)
-struct FGameplayAttributeDataHandle
+enum EInputBindModType
 {
-	GENERATED_BODY()
-
-	FGameplayAttributeData* Data = nullptr;
-	FGameplayAttributeDataHandle(){}
-	FGameplayAttributeDataHandle(FGameplayAttributeData* Data) { this->Data = Data; }
-	FGameplayAttributeData* operator->() const
-	{
-		return Data;
-	}
+	Bind, Remove
 };
 
-UCLASS()
-class MULTIPLAYERSHOOTER_API UAttributeDataHandleFuncs : public UBlueprintFunctionLibrary
-{
-	GENERATED_BODY()
-public:
-	UFUNCTION(BlueprintPure, Category = "Attribute Data")
-	static FORCEINLINE bool IsValid(const FGameplayAttributeDataHandle& AttributeDataHandle) { return AttributeDataHandle.Data != nullptr; }
-	
-	// Only call if you know it is valid
-	UFUNCTION(BlueprintPure, Category = "Attribute Data")
-	static FORCEINLINE FGameplayAttributeData& Get(const FGameplayAttributeDataHandle& AttributeDataHandle) { return *AttributeDataHandle.Data; }
-};
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated, int32, Ammo);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponReserveAmmoUpdated, int32, ReserveAmmo);
-
-DECLARE_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated_Static, int32);
 /**
  * 
  */
@@ -74,24 +48,22 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return BaseDamage; }
+	virtual FORCEINLINE int32 CalculateDamage_Implementation(const class AActor* Target, const FGameplayEffectSpecHandle& Spec) const override { return 0.f; }
 
 	// Idk
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	class USceneComponent* DefaultScene;
 
 	// Weapon mesh
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"), Category = "Components")
 	class USkeletalMeshComponent* Mesh;
 
-	UPROPERTY(EditAnywhere, Category = "Configurations|Anim")
+	UPROPERTY(EditAnywhere, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Cosmetic")
 	class UAnimMontage* EquipMontage;
 
-	UPROPERTY(EditAnywhere, Category = "Configurations|Anim")
-	class UAnimMontage* ReloadMontage;
-	
-	UPROPERTY(EditAnywhere, Category = "Configurations|Anim")
-	class UAnimMontage* FireMontage;
+	// The blueprint binds. Do not set these in C++, use the SetupBinds event instead
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
+	TArray<FInputBindingInfo> Binds;
 
 	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"), Category = "Configurations")
 	TArray<TSubclassOf<class UGASGameplayAbility>> WeaponAbilities;
@@ -99,46 +71,45 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Configurations")
 	TSubclassOf<class UGameplayEffect> DamageEffect;
 
-	// The base damage that all damage calculations are based off of
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	int32 BaseDamage = 15;
-
-	// This should be lowered if projectile weapon or melee weapon
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	float Range = 50000.f;
-
-	// The max range that the damage calculation uses as its metric
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	float EffectiveRange = 3500.f;
-
-	// The cooldown inbetween shots
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	float RateOfFire = 0.1f;
-
-	// The cooldown during reloading
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	float ReloadDuration = 1.f;
-
 	// The duration of swapping weapons
 	UPROPERTY(EditAnywhere, Category = "Configurations")
 	float WeaponSwapDuration = 1.f;
 
-	// Number of shots per execution. Multiple for things like shotguns.
-	UPROPERTY(EditAnywhere, Category = "Configurations")
-	int32 NumShots = 1;
-
 	// The type of damage this weapon deals
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (Categories = "Data.DamageType"), Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (Categories = "Data.DamageType"), Category = "Configurations|Damage Calculation")
 	FGameplayTag DamageType = TAG("Data.DamageType.Bullet");
 
 	// Any extra specifiers for damage calculation like Data.CanHeadshot
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (Categories = "Data"), Category = "Configurations")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (Categories = "Data"), Category = "Configurations|Damage Calculation")
 	FGameplayTagContainer DamageCalculationTags = TAG_CONTAINER("Data.CanHeadshot");
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurations")
 	FName WeaponAttachmentSocketName;
 	
 public:
+	/*
+	 *	BINDS
+	 */
+
+	// Called whenever equipped. Bind your inputs here using AWeapon::SetupBind
+	UFUNCTION(BlueprintCallable, Category = "Binds")
+	virtual void SetupInputBindings();
+
+	UFUNCTION(BlueprintCallable, Category = "Binds")
+	virtual void RemoveInputBindings();
+	
+	template<typename UserClass, typename ReturnType, typename... VarTypes, typename EnumType>
+	FORCEINLINE void SetupBind(UserClass* UserObject, ReturnType(UserClass::* InMemFuncPtr)(VarTypes...), const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent = IE_Pressed)
+	{
+		UInputBinding::BindInputUObject(CurrentOwner, UserObject, InMemFuncPtr, EnumValue, InputEvent);
+	}
+
+	template<typename UserClass, typename ReturnType, typename... VarTypes>
+	FORCEINLINE void SetupBind(UserClass* UserObject, ReturnType(UserClass::* InMemFuncPtr)(VarTypes...))
+	{
+		UInputBinding::BindInputUObject(CurrentOwner, UserObject, InMemFuncPtr, EInputBinding::PrimaryFire, IE_Pressed);
+	}
+	
 	/*
 	 *	Weapon abilities stuff
 	 */
@@ -154,36 +125,9 @@ public:
 	/*
 	 * Getters
 	 */
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class USkeletalMeshComponent* GetMesh() const { return Mesh; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetEquipMontage() const { return EquipMontage; }
 	
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetReloadMontage() const { return ReloadMontage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE class UAnimMontage* GetFireMontage() const { return FireMontage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE float GetRateOfFire() const { return RateOfFire; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE float GetReloadDuration() const { return ReloadDuration; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE float GetWeaponSwapDuration() const { return WeaponSwapDuration; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	const FORCEINLINE TArray<TSubclassOf<class UGASGameplayAbility>>& GetWeaponAbilities() const { return WeaponAbilities; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE float GetBaseDamage() const { return BaseDamage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE int32 GetNumShots() const { return NumShots; }
+	FORCEINLINE class USkeletalMeshComponent* GetMesh() const { return Mesh; }
+	FORCEINLINE class UAnimMontage* GetEquipMontage() const { return EquipMontage; }
 
 	// Appends all damage calculation tags for use in damage effect calculation
 	UFUNCTION(BlueprintPure, Category = "Getters")
@@ -196,12 +140,13 @@ public:
 	FORCEINLINE class UInventoryComponent* GetCurrentInventory() const { return CurrentInventory; }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE float GetRange() const { return Range; }
+	FORCEINLINE float GetWeaponSwapDuration() const { return WeaponSwapDuration; }
 	
 	friend void CallOnObtained(class AWeapon* Weapon, class UInventoryComponent* Inventory);
 	friend void CallOnRemoved(class AWeapon* Weapon, class UInventoryComponent* Inventory);
 	friend void CallOnEquipped(class AWeapon* Weapon, class UCharacterInventoryComponent* Inventory);
 	friend void CallOnUnEquipped(class AWeapon* Weapon, class UCharacterInventoryComponent* Inventory);
+	
 protected:
 	/*
 	 *	Equipping and unequipping stuff
@@ -228,7 +173,7 @@ protected:
 	void BP_OnEquipped(class UCharacterInventoryComponent* Inventory);
 
 	UFUNCTION(BlueprintCallable)
-	void OnUnEquipped(class UCharacterInventoryComponent* Inventory);
+	void OnUnequipped(class UCharacterInventoryComponent* Inventory);
 	//virtual void OnUnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
 	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On UnEquipped"))
 	void BP_OnUnEquipped(class UCharacterInventoryComponent* Inventory);
@@ -248,13 +193,6 @@ protected:
 	UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
 	void OnRep_CurrentInventory(const class UInventoryComponent* OldInventory);
 	virtual void OnRep_CurrentInventory_Implementation(const class UInventoryComponent* OldInventory);
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_Ammo, Meta = (EditCondition = "bUseAmmo"))
-	int32 Ammo = 0;
-	
-	// The ammo type to decrement from reserve ammo attribute
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	FGameplayAttribute AmmoAttribute;
 	
 public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -263,63 +201,12 @@ public:
 		Mesh->SetVisibility(bIsVisible);
 	}
 	
-	UFUNCTION(BlueprintPure, Category = "Weapon")
-	FORCEINLINE int32 GetAmmo() const { return Ammo; }
-
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	FORCEINLINE void SetAmmo(const int32 NewAmmo)
-	{
-		if(NewAmmo == Ammo) return;
-		const int32 OldAmmo = Ammo;
-		Ammo = NewAmmo;
-		OnRep_Ammo(OldAmmo);
-	}
-
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	FORCEINLINE void DecrementAmmo(const int32 Num = 1) { SetAmmo(Ammo - Num); }
-
-	UFUNCTION(BlueprintPure, Category = "Weapon")
-	const FORCEINLINE FGameplayAttribute& GetAmmoAttribute() const { return AmmoAttribute; }
-
-	// Gets reference to ammo attribute data
-	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Get Ammo Attribute Data"), Category = "Weapon")
-	FGameplayAttributeDataHandle GetAmmoAttributeDataHandle() const
-	{
-		return FGameplayAttributeDataHandle(GetAmmoAttributeData());
-	}
-
-	// Gets ammo attribute data ptr from set
-	FGameplayAttributeData* GetAmmoAttributeData() const;
 	
-	UFUNCTION(BlueprintPure, Category = "Weapon")
-	FORCEINLINE int32 GetReserveAmmo() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	FORCEINLINE void SetReserveAmmo(const int32 NewReserveAmmo);
 	
 	// Should be overriden
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	bool CanFire() const;
-	virtual FORCEINLINE bool CanFire_Implementation() const { return Ammo > 0; }
-
-	// Update ammo client-side with the amount server side when mis-predicting
-	// ammo consumption. Only call on server, obviously
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	FORCEINLINE void UpdateClientAmmo()
-	{
-		if(HasAuthority()) Client_UpdateAmmo(Ammo);
-	}
-
-	// Called whenever the amount of ammo changes
-	UPROPERTY(BlueprintAssignable, Category = "Weapon|Delegates")
-	FWeaponAmmoUpdated AmmoDelegate;
-
-	// Called whenever the amount of reserve ammo changes
-	UPROPERTY(BlueprintAssignable, Category = "Weapon|Delegates")
-	FWeaponReserveAmmoUpdated ReserveAmmoDelegate;
-
-	FWeaponAmmoUpdated_Static AmmoDelegate_Static;
-	FWeaponAmmoUpdated_Static ReserveAmmoDelegate_Static;
+	virtual FORCEINLINE bool CanFire_Implementation() const { return true; }
 
 	/*
 	 *	ANIM
@@ -350,29 +237,26 @@ public:
 	float AimOffset = 15.f;
 	
 protected:
-	/*
-	 *	Ammo updated
-	 */
-	UFUNCTION()
-	virtual FORCEINLINE void OnRep_Ammo(const int32& OldAmmo)
-	{
-		AmmoDelegate.Broadcast(Ammo);
-		AmmoDelegate_Static.Broadcast(Ammo);
-	}
 	
-	FORCEINLINE void ReserveAmmoUpdated(const FOnAttributeChangeData& Data)
-	{
-		ReserveAmmoDelegate.Broadcast(GetReserveAmmo());
-		ReserveAmmoDelegate_Static.Broadcast(GetReserveAmmo());
-	}
+	/*
+	 *	HELPERS
+	 */
+	UFUNCTION(BlueprintPure)
+	bool IsLocallyControlledOwner() const;
 
-	UFUNCTION(Client, Reliable)
-	void Client_UpdateAmmo(const float Value);
-	FORCEINLINE void Client_UpdateAmmo_Implementation(const float Value)
+	template<typename UserClass, typename ReturnType, typename... ParamTypes, typename EnumType>
+	FORCEINLINE void Internal_AddBindingDynamic(ReturnType(UserClass::* MemFuncPtr)(ParamTypes...), const FName& FuncName, const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent)
 	{
-		const float OldValue = Ammo;
-		Ammo = Value;
-		OnRep_Ammo(OldValue);
+		check(MemFuncPtr != nullptr);
+		Binds.Add(FInputBindingInfo(EnumValue, InputEvent, FuncName));
 	}
-};  
+};
+
+// Adds the input binding from a member function pointer. Mark the function as a UFUNCTION. Should not use this, use CREATE_BIND in AWeapon::SetBindings
+#define AddBinding(MemFunc, Input, Event) Internal_AddBindingDynamic(MemFunc, STATIC_FUNCTION_FNAME(TEXT(#MemFunc)), Input, Event)
+
+// Call this inside AWeapon::SetBindings to create a binding on equipped that gets removed on unequipped. No UFUNCTION declaration required
+#define DECLARE_WEAPON_BIND(MemFunc, Input, Event)\
+	{ (BindMod == EInputBindModType::Bind) ? UInputBinding::BindInputUObject(CurrentOwner, this, MemFunc, Input, Event) :\
+	UInputBinding::RemoveInputUObject(CurrentOwner, this, Input, Event); }
 

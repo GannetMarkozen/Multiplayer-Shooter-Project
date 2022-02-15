@@ -8,18 +8,24 @@
 #include "MultiplayerShooter/MultiplayerShooter.h"
 #include "GAS/Abilities/Weapons/Rifle.h"
 
+
+// friend func of AWeapon
+void CallOnObtained(AWeapon* Weapon, UInventoryComponent* Inventory)
+{
+	if(Weapon) Weapon->OnObtained(Inventory);
+}
+
+void CallOnRemoved(AWeapon* Weapon, UInventoryComponent* Inventory)
+{
+	if(Weapon) Weapon->OnRemoved(Inventory);
+}
+
 UInventoryComponent::UInventoryComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
 	SetIsReplicated(true);
 	SetIsReplicatedByDefault(true);
-}
-
-// friend func of AWeapon
-void CallOnObtained(AWeapon* Weapon, UInventoryComponent* Inventory)
-{
-	if(Weapon) Weapon->OnObtained(Inventory);
 }
 
 void UInventoryComponent::BeginPlay()
@@ -76,12 +82,6 @@ void UInventoryComponent::OnRep_Weapons()
 			Weapon->SetVisibility(false);
 		}
 	}
-}
-
-
-void CallOnRemoved(AWeapon* Weapon, UInventoryComponent* Inventory)
-{
-	if(Weapon) Weapon->OnRemoved(Inventory);
 }
 
 void UInventoryComponent::RemoveItem(const int32 Index)

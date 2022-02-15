@@ -299,7 +299,9 @@ public:
 	{
 		return Class.GetDefaultObject();
 	}
-	
+
+	UFUNCTION(BlueprintPure, Meta = (AutoCreateRefTerm = "Attribute", DisplayName = "Make Runtime Gameplay Effect"), Category = "GAS")
+	static FGameplayEffectSpec& MakeRuntimeGE(const FGameplayAttribute& Attribute, const EGameplayModOp::Type Modifier, const float Value);
 
 	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Make Runtime Gameplay Effect With Override Float Value", AutoCreateRefTerm = "Attribute"), Category = "GAS")
 	static const FGameplayEffectSpec& MakeRuntimeGEWithOverrideFloatValue(const FGameplayAttribute& Attribute, const float Value = 0.f);

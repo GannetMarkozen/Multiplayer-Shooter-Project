@@ -46,6 +46,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	FORCEINLINE class AWeapon* GetCurrentWeapon() const { return CurrentWeapon; }
 
+	template<typename T>
+	FORCEINLINE T* GetCurrentWeapon() const { return Cast<T>(CurrentWeapon); }
+
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 	FORCEINLINE int32 GetCurrentIndex() const { return CurrentIndex; }
 
