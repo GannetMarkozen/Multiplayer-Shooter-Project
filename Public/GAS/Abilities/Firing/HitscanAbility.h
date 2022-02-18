@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GAS/GASGameplayAbility.h"
-#include "GAS/Abilities/Weapons/ProjectileWeapon.h"
+#include "GAS/Abilities/Weapons/RangedWeapon.h"
 #include "HitscanAbility.generated.h"
 
 /**

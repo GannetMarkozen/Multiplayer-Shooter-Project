@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GAS/Abilities/Weapons/ProjectileWeapon.h"
+#include "GAS/Abilities/Weapons/RangedWeapon.h"
 
 #include "Camera/CameraComponent.h"
 #include "Character/ShooterCharacter.h"
@@ -13,29 +13,29 @@
 #include "Particles/ParticleSystemComponent.h"
 
 
-AProjectileWeapon::AProjectileWeapon()
+ARangedWeapon::ARangedWeapon()
 {
 	AmmoAttribute = UAmmoAttributeSet::GetRifleAmmoAttribute();
 
 	
 }
 
-void AProjectileWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void ARangedWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION_NOTIFY(AProjectileWeapon, Ammo, COND_OwnerOnly, REPNOTIFY_OnChanged);
+	DOREPLIFETIME_CONDITION_NOTIFY(ARangedWeapon, Ammo, COND_OwnerOnly, REPNOTIFY_OnChanged);
 }
 
 
-void AProjectileWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* OldInventory)
+void ARangedWeapon::OnRep_CurrentInventory_Implementation(const UInventoryComponent* OldInventory)
 {
 	Super::OnRep_CurrentInventory_Implementation(OldInventory);
 	
 	if(CurrentInventory)
 	{// Bind reserve ammo delegate on changed
 		if(AmmoAttribute.IsValid())
-			CurrentASC->GetGameplayAttributeValueChangeDelegate(AmmoAttribute).AddUObject(this, &AProjectileWeapon::ReserveAmmoUpdated);
+			CurrentASC->GetGameplayAttributeValueChangeDelegate(AmmoAttribute).AddUObject(this, &ARangedWeapon::ReserveAmmoUpdated);
 	}
 	else
 	{// Unbind reserve ammo delegate
@@ -44,13 +44,13 @@ void AProjectileWeapon::OnRep_CurrentInventory_Implementation(const UInventoryCo
 	}
 }
 
-FGameplayAttributeData* AProjectileWeapon::GetAmmoAttributeData() const
+FGameplayAttributeData* ARangedWeapon::GetAmmoAttributeData() const
 {
 	return CurrentOwner && AmmoAttribute.IsValid() ? AmmoAttribute.GetUProperty()->ContainerPtrToValuePtr<FGameplayAttributeData>(CurrentOwner->AmmoSet) : nullptr;
 }
 
 
-void AProjectileWeapon::SetReserveAmmo(const int32 NewReserveAmmo)
+void ARangedWeapon::SetReserveAmmo(const int32 NewReserveAmmo)
 {
 	if(!AmmoAttribute.IsValid() || !CurrentASC) return;
 	
@@ -69,7 +69,7 @@ void AProjectileWeapon::SetReserveAmmo(const int32 NewReserveAmmo)
 	CurrentASC->ApplyGameplayEffectSpecToSelf(*Spec);
 }
 
-void AProjectileWeapon::OnFireWeapon_Implementation(const FGameplayAbilityTargetDataHandle& TargetData)
+void ARangedWeapon::OnFireWeapon_Implementation(const FGameplayAbilityTargetDataHandle& TargetData)
 {
 	const FTransform& MuzzleTransform = GetMuzzleWorldTransform();
 	
@@ -83,7 +83,7 @@ void AProjectileWeapon::OnFireWeapon_Implementation(const FGameplayAbilityTarget
 		URecoilInstance::AddRecoilInstance(CurrentOwner, RecoilClass, 1.f);
 }
 
-void AProjectileWeapon::OnFireWeaponEnd_Implementation()
+void ARangedWeapon::OnFireWeaponEnd_Implementation()
 {
 	
 }

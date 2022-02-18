@@ -20,7 +20,7 @@ class MULTIPLAYERSHOOTER_API UInputBinding : public UBlueprintFunctionLibrary
 public:	
 	// Gets the value name of the passed in enum
 	template<typename EnumType>
-	static FORCEINLINE FString GetEnumValueString(const EnumType EnumValue)
+	static FORCEINLINE FString EnumValueToString(const EnumType EnumValue)
 	{
 		static_assert(TIsEnum<EnumType>::Value, "UEnumHelpers::EnumValueToString() Must input enum value");
 		return StaticEnum<EnumType>()->GetNameStringByIndex((int32)EnumValue);
@@ -29,7 +29,23 @@ public:
 	template<typename EnumType>
 	static FORCEINLINE FName GetEnumValueName(const EnumType EnumValue)
 	{
-		return FName(UInputBinding::GetEnumValueString<EnumType>(EnumValue));
+		return FName(UInputBinding::EnumValueToString<EnumType>(EnumValue));
+	}
+
+	template<typename EnumType>
+	static FORCEINLINE bool HasBind(class APawn* Pawn, UObject* UserObject, const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent = IE_Pressed)
+	{
+		if(!Pawn || !Pawn->Controller || !Pawn->Controller->InputComponent || !UserObject) return false;
+		const UInputComponent* InputComponent = Pawn->Controller->InputComponent;
+		for(int32 i = 0; i < InputComponent->GetNumActionBindings(); i++)
+		{
+			const FInputActionBinding& Binding = InputComponent->GetActionBinding(i);
+			if(Binding.GetActionName() == UInputBinding::GetEnumValueName<EnumType>(EnumValue) &&
+				Binding.KeyEvent == InputEvent &&
+					Binding.ActionDelegate.GetUObject() == UserObject)
+						return true;
+		}
+		return false;
 	}
 
 	template<typename EnumType>
@@ -80,6 +96,22 @@ public:
 		}
 	}
 
+	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "Remove Input From Object", DefaultToSelf = "Pawn, UserObject", AutoCreateRefTerm = "InputName"), Category = "Input")
+	static FORCEINLINE void RemoveInputUObject(class APawn* Pawn, class UObject* UserObject, const FName& InputName, const TEnumAsByte<EInputEvent> InputEvent = IE_Pressed)
+	{
+		if(!Pawn || !Pawn->Controller || !Pawn->Controller->InputComponent || !UserObject) return;
+		UInputComponent* InputComponent = Pawn->Controller->InputComponent;
+		for(int32 i = 0; i < InputComponent->GetNumActionBindings(); i++)
+		{
+			const FInputActionBinding& Binding = InputComponent->GetActionBinding(i);
+			if(Binding.GetActionName() == InputName && Binding.KeyEvent == InputEvent && Binding.ActionDelegate.GetUObject() == UserObject)
+			{
+				InputComponent->RemoveActionBinding(i);
+				break;
+			}
+		}
+	}
+
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	static FORCEINLINE void RemoveAllInputUObject(class APawn* Pawn, class UObject* UserObject)
 	{
@@ -91,7 +123,6 @@ public:
 			if(Binding.ActionDelegate.GetUObject() == UserObject)
 			{
 				InputComponent->RemoveActionBinding(i);
-				break;
 			}
 		}
 	}

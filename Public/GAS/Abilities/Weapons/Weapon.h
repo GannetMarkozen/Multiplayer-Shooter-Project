@@ -30,9 +30,26 @@ struct FMeshTableRow : public FTableRowBase
 	FName ForegripName = "Foregrip";
 };
 
-enum EInputBindModType
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponEquipped, class UInventoryComponent*, Inventory);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponUnequipped, class UInventoryComponent*, OldInventory);
+
+USTRUCT()
+struct FObjectInputBindingInfo
 {
-	Bind, Remove
+	GENERATED_BODY()
+
+	FObjectInputBindingInfo(){}
+	FObjectInputBindingInfo(class UObject* Object, const FName& InputName, const TEnumAsByte<EInputEvent> InputEvent)
+	{
+		this->Object = Object;
+		this->InputName = InputName;
+		this->InputEvent = InputEvent;
+	}
+	
+	UPROPERTY()
+	class UObject* Object = nullptr;
+	FName InputName = NAME_None;
+	TEnumAsByte<EInputEvent> InputEvent = IE_Pressed;
 };
 
 /**
@@ -95,21 +112,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Binds")
 	virtual void SetupInputBindings();
 
+	// Should fix this function being called twice when dropping an item and then immediately swapping to next item, but doesn't really matter
 	UFUNCTION(BlueprintCallable, Category = "Binds")
 	virtual void RemoveInputBindings();
-	
+
+	// Called whenever equipped or unequipped. Removes bind if bind exists and adds bind if none exists, kinda sketchy... Works though
 	template<typename UserClass, typename ReturnType, typename... VarTypes, typename EnumType>
 	FORCEINLINE void SetupBind(UserClass* UserObject, ReturnType(UserClass::* InMemFuncPtr)(VarTypes...), const EnumType EnumValue, const TEnumAsByte<EInputEvent> InputEvent = IE_Pressed)
 	{
-		UInputBinding::BindInputUObject(CurrentOwner, UserObject, InMemFuncPtr, EnumValue, InputEvent);
+		if(!UInputBinding::HasBind(CurrentOwner, UserObject, EnumValue, InputEvent))
+		{
+			UInputBinding::BindInputUObject(CurrentOwner, UserObject, InMemFuncPtr, EnumValue, InputEvent);
+			CurrentBinds.Add(FObjectInputBindingInfo(UserObject, UInputBinding::GetEnumValueName(EnumValue), InputEvent));
+		}
 	}
 
 	template<typename UserClass, typename ReturnType, typename... VarTypes>
 	FORCEINLINE void SetupBind(UserClass* UserObject, ReturnType(UserClass::* InMemFuncPtr)(VarTypes...))
 	{
-		UInputBinding::BindInputUObject(CurrentOwner, UserObject, InMemFuncPtr, EInputBinding::PrimaryFire, IE_Pressed);
+		SetupBind<UserClass, ReturnType, VarTypes..., EInputBinding>(UserObject, InMemFuncPtr, EInputBinding::PrimaryFire, IE_Pressed);
 	}
 	
+protected:
+	// Stored all objects currently bound with
+	TArray<FObjectInputBindingInfo> CurrentBinds;
+	
+public:	
 	/*
 	 *	Weapon abilities stuff
 	 */
@@ -134,13 +162,18 @@ public:
 	FORCEINLINE FGameplayTagContainer GetDamageCalculationTags() const { return TAG_CONTAINER({FGameplayTagContainer(DamageType), DamageCalculationTags}); }
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE const TSubclassOf<class UGameplayEffect>& GetDamageEffect() const { return DamageEffect; }
+	
 	FORCEINLINE class AShooterCharacter* GetCurrentOwner() const { return CurrentOwner; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE class UInventoryComponent* GetCurrentInventory() const { return CurrentInventory; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
+	FORCEINLINE class UGASAbilitySystemComponent* GetCurrentASC() const { return CurrentASC; }
 	FORCEINLINE float GetWeaponSwapDuration() const { return WeaponSwapDuration; }
+
+	UPROPERTY(BlueprintAssignable, Category = "Delegates")
+	FOnWeaponEquipped EquippedDelegate;
+
+	UPROPERTY(BlueprintAssignable, Category = "Delegates")
+	FOnWeaponUnequipped UnequippedDelegate;
 	
 	friend void CallOnObtained(class AWeapon* Weapon, class UInventoryComponent* Inventory);
 	friend void CallOnRemoved(class AWeapon* Weapon, class UInventoryComponent* Inventory);
@@ -155,36 +188,36 @@ protected:
 	virtual void AttachToWeaponSocket();
 	
 	UFUNCTION(BlueprintCallable)
-	void OnObtained(class UInventoryComponent* Inventory);
+	virtual void OnObtained(class UInventoryComponent* Inventory);
 	//virtual void OnObtained_Implementation(class UInventoryComponent* Inventory);
 	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On Obtained"))
 	void BP_OnObtained(class UInventoryComponent* Inventory);
 
 	UFUNCTION(BlueprintCallable)
-	void OnRemoved(class UInventoryComponent* Inventory);
+	virtual void OnRemoved(class UInventoryComponent* Inventory);
 	//virtual void OnRemoved_Implementation(class UInventoryComponent* Inventory);
 	UFUNCTION(BlueprintImplementableEvent, DisplayName = "On Removed")
 	void BP_OnRemoved(class UInventoryComponent* Inventory);
 
 	UFUNCTION(BlueprintCallable)
-	void OnEquipped(class UCharacterInventoryComponent* Inventory);
+	virtual void OnEquipped(class UCharacterInventoryComponent* Inventory);
 	//virtual void OnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
 	UFUNCTION(BlueprintImplementableEvent, DisplayName = "On Equipped")
 	void BP_OnEquipped(class UCharacterInventoryComponent* Inventory);
 
 	UFUNCTION(BlueprintCallable)
-	void OnUnequipped(class UCharacterInventoryComponent* Inventory);
+	virtual void OnUnequipped(class UCharacterInventoryComponent* Inventory);
 	//virtual void OnUnEquipped_Implementation(class UCharacterInventoryComponent* Inventory);
 	UFUNCTION(BlueprintImplementableEvent, Meta = (DisplayName = "On UnEquipped"))
 	void BP_OnUnEquipped(class UCharacterInventoryComponent* Inventory);
 
-	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_CurrentInventory)
+	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_CurrentInventory, Meta = (AllowPrivateAccess = "true"))
 	class UInventoryComponent* CurrentInventory;
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"))
 	class AShooterCharacter* CurrentOwner;
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite, Meta = (AllowPrivateAccess = "true"))
 	class UCharacterInventoryComponent* CurrentCharacterInventory;
 
 	UPROPERTY(BlueprintReadWrite)

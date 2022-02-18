@@ -42,6 +42,13 @@ public:
 		}
 	}
 
+	UFUNCTION(BlueprintPure, Meta = (DisplayName = "Get Custom Tags"), Category = "GAS")
+	static FORCEINLINE void GetCustomTagsFromEffectContext(const FGameplayEffectContextHandle& EffectContextHandle, FGameplayTagContainer& OutCustomTags)
+	{
+		if(const FGameplayEffectContextExtended* EffectContext = (FGameplayEffectContextExtended*)EffectContextHandle.Get())
+			OutCustomTags = EffectContext->CustomTags;
+	}
+
 	UFUNCTION(BlueprintPure, Category = "GAS")
 	static FORCEINLINE FGameplayEffectContextHandle GetEffectContext(const FGameplayEffectSpecHandle& EffectSpec)
 	{
@@ -263,13 +270,15 @@ public:
 		return ActorInfo.IsLocallyControlled();
 	}
 
-	UFUNCTION(BlueprintPure, Meta = (DefaultToSelf = "Instigator", AutoCreateRefTerm = "TargetData"), Category = "GAS")
-	static FORCEINLINE FGameplayEffectContextHandle MakeEffectContextHandle(const class UAbilitySystemComponent* ASC, class AActor* Target, const FGameplayAbilityTargetDataHandle& TargetData)
+	UFUNCTION(BlueprintPure, Meta = (DefaultToSelf = "ASC", AutoCreateRefTerm = "TargetData, CustomTags"), Category = "GAS")
+	static FORCEINLINE FGameplayEffectContextHandle MakeEffectContextHandle(const class UAbilitySystemComponent* ASC,
+		class AActor* Target, const FGameplayAbilityTargetDataHandle& TargetData, const FGameplayTagContainer& CustomTags)
 	{
 		if(!ASC) return FGameplayEffectContextHandle();
 		const FGameplayEffectContextHandle& Context = ASC->MakeEffectContext();
 		((FGameplayEffectContextExtended*)Context.Get())->SetTarget(Target);
 		((FGameplayEffectContextExtended*)Context.Get())->AddTargetData(TargetData);
+		((FGameplayEffectContextExtended*)Context.Get())->CustomTags = CustomTags;
 		return Context;
 	}
 

@@ -71,7 +71,7 @@ bool UHitscanAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 void UHitscanAbility::DoLineTrace_Implementation(FHitResult& Hit, const FVector& Location, const FRotator& Rotation, const TArray<AActor*>& IgnoreActors)
 {
-	const FVector2D& Spread = CurrentWeapon->CalculateSpread();
+	const FVector2D& Spread = CurrentWeapon->GetFiringSpread();
 	const FRotator AimRotation(Rotation.Pitch + Spread.Y, Rotation.Yaw + Spread.X, 0.f);
 	const FVector& End = Location + AimRotation.Vector() * CurrentWeapon->GetRange();
 	

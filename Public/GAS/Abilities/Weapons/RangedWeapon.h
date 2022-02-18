@@ -5,15 +5,7 @@
 #include "CoreMinimal.h"
 #include "Weapon.h"
 #include "GAS/GASGameplayAbility.h"
-#include "ProjectileWeapon.generated.h"
-
-UENUM(BlueprintType)
-enum class EFireMode : uint8
-{
-	SemiAuto		UMETA(DisplayName = "Semi-Auto"),
-	FullAuto		UMETA(DisplayName = "Full-Auto"),
-	Burst			UMETA(DisplayName = "Burst"),
-};
+#include "RangedWeapon.generated.h"
 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated, int32, Ammo);
@@ -24,28 +16,21 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FWeaponAmmoUpdated_Static, int32);
 /**
  * 
  */
-UCLASS()
-class MULTIPLAYERSHOOTER_API AProjectileWeapon : public AWeapon
+UCLASS(Abstract)
+class MULTIPLAYERSHOOTER_API ARangedWeapon : public AWeapon
 {
 	GENERATED_BODY()
 public:
-	AProjectileWeapon();
+	ARangedWeapon();
 
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnRep_CurrentInventory_Implementation(const UInventoryComponent* OldInventory) override;
 	virtual FORCEINLINE bool CanFire_Implementation() const override { return Ammo > 0; }
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"), Category = "Configurations|Firing")
-	EFireMode FireMode = EFireMode::SemiAuto;
 
 	// The base damage that all damage calculations are based off of
 	UPROPERTY(EditAnywhere, Category = "Configurations|Firing")
 	int32 BaseDamage = 15;
-	
-	// Number of shots per execution. Multiple for things like shotguns.
-	UPROPERTY(EditAnywhere, Category = "Configurations|Firing")
-	int32 NumShots = 1;
 	
 	// This should be lowered if projectile weapon or melee weapon
 	UPROPERTY(EditAnywhere, Category = "Configurations|Firing")
@@ -70,16 +55,6 @@ protected:
 	// The cooldown inbetween shots
 	UPROPERTY(EditAnywhere, Category = "Configurations|Firing")
 	float RateOfFire = 0.1f;
-
-	/*
-	 *	BURST FIRE SETTINGS
-	 */
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true", EditCondition = "FireMode == EFireMode::Burst"), Category = "Configurations|Firing|Burst")
-	float BurstRateOfFire = 0.6f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true", EditCondition = "FireMode == EFireMode::Burst"), Category = "Configurations|Firing|Burst")
-	int32 NumShotsPerBurst = 3;
 
 	/*
 	 *	COSMETICS
@@ -111,10 +86,6 @@ public:
 		Ammo = NewAmmo;
 		OnRep_Ammo(OldAmmo);
 	}
-
-	FORCEINLINE EFireMode GetFireMode() const { return FireMode; }
-	FORCEINLINE int32 GetNumShotsPerBurst() const { return NumShotsPerBurst; }
-	FORCEINLINE float GetBurstRateOfFire() const { return BurstRateOfFire; }
 	
 	UFUNCTION(BlueprintCallable, Category = "Weapon|Firing")
 	FORCEINLINE void DecrementAmmo(const int32 Num = 1) { SetAmmo(Ammo - Num); }
@@ -145,9 +116,6 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Getters")
 	FORCEINLINE float GetBaseDamage() const { return BaseDamage; }
-
-	UFUNCTION(BlueprintPure, Category = "Getters")
-	FORCEINLINE int32 GetNumShots() const { return NumShots; }
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void SetReserveAmmo(const int32 NewReserveAmmo);
@@ -255,8 +223,4 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon|Cosmetic")
 	void OnFireWeaponEnd();
 	virtual void OnFireWeaponEnd_Implementation();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "Weapon|Cosmetic")
-	FVector2D CalculateSpread() const;
-	virtual FORCEINLINE FVector2D CalculateSpread_Implementation() const { return FVector2D::ZeroVector; }
 };

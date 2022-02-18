@@ -93,16 +93,17 @@ public:
 	}
  
 	UFUNCTION(BlueprintCallable, Meta = (DisplayName = "Make Effect Context Extended"), Category = "GAS")
-	FORCEINLINE FGameplayEffectContextHandle K2_MakeEffectContextExtended(class AActor* OptionalTargetActor, const FGameplayAbilityTargetDataHandle OptionalTargetData) const
+	FORCEINLINE FGameplayEffectContextHandle BP_MakeEffectContextExtended(class AActor* OptionalTargetActor, const FGameplayAbilityTargetDataHandle OptionalTargetData) const
 	{
 		return MakeEffectContextExtended(OptionalTargetActor, OptionalTargetData);
 	}
 
-	FORCEINLINE FGameplayEffectContextHandle MakeEffectContextExtended(class AActor* OptionalTarget = nullptr, const FGameplayAbilityTargetDataHandle& OptionalTargetDataHandle = FGameplayAbilityTargetDataHandle()) const
+	FORCEINLINE FGameplayEffectContextHandle MakeEffectContextExtended(class AActor* OptionalTarget = nullptr, const FGameplayAbilityTargetDataHandle& OptionalTargetDataHandle = FGameplayAbilityTargetDataHandle(), const FGameplayTagContainer& CustomTags = FGameplayTagContainer::EmptyContainer) const
 	{
 		const FGameplayEffectContextHandle& Handle = MakeEffectContext();
 		if(!OptionalTargetDataHandle.Data.IsEmpty()) ((FGameplayEffectContextExtended*)Handle.Get())->AddTargetData(OptionalTargetDataHandle);
 		if(OptionalTarget) ((FGameplayEffectContextExtended*)Handle.Get())->SetTarget(OptionalTarget);
+		if(!CustomTags.IsEmpty()) ((FGameplayEffectContextExtended*)Handle.Get())->CustomTags = CustomTags;
 		return Handle;
 	}
 

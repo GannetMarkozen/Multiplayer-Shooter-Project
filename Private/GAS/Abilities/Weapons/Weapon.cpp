@@ -10,6 +10,7 @@
 #include "GAS/GASGameplayAbility.h"
 #include "GAS/Abilities/Weapons/RecoilInstance.h"
 #include "GAS/Abilities/Weapons/Rifle.h"
+#include "GAS/Abilities/Weapons/FireModes/FiringObject.h"
 #include "GAS/AttributeSets/AmmoAttributeSet.h"
 #include "GAS/Effects/DamageEffect.h"
 #include "MultiplayerShooter/MultiplayerShooter.h"
@@ -40,23 +41,52 @@ AWeapon::AWeapon()
 	
 }
 
-
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	for(TFieldIterator<FProperty> Itr(GetClass()); Itr; ++Itr)
+	{
+		if(const FObjectProperty* ObjProp = CastField<FObjectProperty>(*Itr))
+		{
+			if(ObjProp->PropertyClass->IsChildOf(UFiringObject::StaticClass()))
+				if(UFiringObject** const ObjRef = ObjProp->ContainerPtrToValuePtr<UFiringObject*>(this))
+					if(const UFiringObject* Obj = *ObjRef)
+						PRINT(TEXT("Obj name == %s"), *Obj->GetName());
+		}
+		else if(const FArrayProperty* ArrProp = CastField<FArrayProperty>(*Itr))
+		{
+			if(const FObjectProperty* InnerObjProp = CastField<FObjectProperty>(ArrProp->Inner))
+				if(InnerObjProp->PropertyClass->IsChildOf(UFiringObject::StaticClass()))
+					if(TArray<UFiringObject*>* const ArrRef = ArrProp->ContainerPtrToValuePtr<TArray<UFiringObject*>>(this))
+						for(const UFiringObject* Obj : *ArrRef)
+							if(IsValid(Obj))
+								PRINT(TEXT("Obj from arr name == %s"), *Obj->GetName());
+		}
+	}
 }
 
 void AWeapon::SetupInputBindings()
 {
-	//SetupBind(&AWeapon::PrintSomething, EInputBinding::PrimaryFire, IE_Released);
+	// Bind blueprint input binds
 	for(const FInputBindingInfo& Bind : Binds)
 		UInputBinding::BindInputUFunction(CurrentOwner, this, Bind.FuncName, Bind.InputBind, Bind.InputEvent);
 }
 
 void AWeapon::RemoveInputBindings()
-{// Should fix this function being called twice when dropping an item and then immediately swapping to next item, but doesn't really matter
-	UInputBinding::RemoveAllInputUObject(CurrentOwner, this);
+{
+	// Remove BP binds from this object
+	for(const FInputBindingInfo& Bind : Binds)
+		UInputBinding::RemoveInputUObject(CurrentOwner, this, Bind.InputBind, Bind.InputEvent);
+
+	// Remove CPP binds from designated object and empty array of current CPP binds
+	for(const FObjectInputBindingInfo& Bind : CurrentBinds)
+	{
+		UInputBinding::RemoveInputUObject(CurrentOwner, Bind.Object, Bind.InputName, Bind.InputEvent);
+		//PRINT(TEXT("Removing CPP Input %s %s %s"), *Bind.Object->GetName(), *Bind.InputName.ToString(), *FString(Bind.InputEvent == IE_Pressed ? "IE_Pressed" : "IE_Released"));
+	}
+	
+	CurrentBinds.Empty();
 }
 
 
@@ -106,9 +136,11 @@ void AWeapon::OnEquipped(UCharacterInventoryComponent* Inventory)
 			AnimInstance->Montage_Play(EquipMontage);
 
 	// Bind custom inputs
-	SetupInputBindings();
+	if(CurrentOwner->IsLocallyControlled())
+		SetupInputBindings();
 
 	BP_OnEquipped(Inventory);
+	EquippedDelegate.Broadcast(Inventory);
 }
 
 void AWeapon::OnUnequipped(UCharacterInventoryComponent* Inventory)
@@ -124,6 +156,7 @@ void AWeapon::OnUnequipped(UCharacterInventoryComponent* Inventory)
 		//UInputBinding::RemoveAllInputUObject(CurrentOwner, this);
 
 	BP_OnUnEquipped(Inventory);
+	UnequippedDelegate.Broadcast(Inventory);
 }
 
 

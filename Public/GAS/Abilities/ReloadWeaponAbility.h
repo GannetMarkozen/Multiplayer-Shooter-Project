@@ -38,7 +38,7 @@ protected:
     virtual void TagsChanged_Implementation(FGameplayTag Tag, int32 Count);
 
     UPROPERTY(BlueprintReadWrite, Category = "GAS|Ability")
-    class AProjectileWeapon* CurrentWeapon;
+    class ARangedWeapon* CurrentWeapon;
 
     UPROPERTY(EditDefaultsOnly, Meta = (Categories = "WeaponState"), Category = "Configurations")
     FGameplayTag ReloadStateTag = TAG("WeaponState.Reloading");

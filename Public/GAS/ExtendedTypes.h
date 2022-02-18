@@ -86,6 +86,7 @@ public:
 	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override
 	{
 		const bool bReturn = Super::NetSerialize(Ar, Map, bOutSuccess) && TargetData.NetSerialize(Ar, Map, bOutSuccess);
+		CustomTags.NetSerialize(Ar, Map, bOutSuccess);
 		
 		uint8 RepBits = 0;
 		if(Ar.IsSaving())
@@ -108,7 +109,8 @@ public:
 	{
 		Target = InTarget;
 	}
-
+	
+	FGameplayTagContainer CustomTags;
 protected:
 	FGameplayAbilityTargetDataHandle TargetData;
 	TWeakObjectPtr<class AActor> Target;
